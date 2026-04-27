@@ -32,6 +32,11 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+
+# project docs (specs, plans, design briefs - not versioned)
+docs/
+DESIGN.md
 
 # typescript
 *.tsbuildinfo
