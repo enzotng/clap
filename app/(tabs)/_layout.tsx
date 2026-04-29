@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Clapperboard, Search, Library, User } from 'lucide-react-native';
+import { colors, fonts } from '@/theme/tokens';
 
 export default function TabsLayout() {
   return (
@@ -7,39 +8,48 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#0A0908',
-          borderTopColor: '#2A2724',
+          backgroundColor: colors.bg,
+          borderTopColor: colors.line,
+          height: 68,
+          paddingBottom: 10,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: '#D4A547',
-        tabBarInactiveTintColor: '#7C7468',
+        tabBarLabelStyle: {
+          fontFamily: fonts.mono,
+          fontSize: 9,
+          letterSpacing: 0.5,
+          textTransform: 'uppercase',
+        },
+        tabBarActiveTintColor: colors.gold,
+        tabBarInactiveTintColor: colors.ink3,
       }}
     >
       <Tabs.Screen
         name="discover"
         options={{
           title: 'Découvrir',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>◧</Text>,
+          tabBarIcon: ({ color }) => <Clapperboard size={20} color={color} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
           title: 'Recherche',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>⌕</Text>,
+          tabBarIcon: ({ color }) => <Search size={20} color={color} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
         name="library"
         options={{
           title: 'Bibliothèque',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>▤</Text>,
+          tabBarIcon: ({ color }) => <Library size={20} color={color} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>○</Text>,
+          tabBarIcon: ({ color }) => <User size={20} color={color} strokeWidth={1.8} />,
         }}
       />
     </Tabs>
