@@ -46,9 +46,9 @@ function MovieTicketImpl({ movie, width, index = 1, onTap = true }: Props) {
         <Text style={styles.title} numberOfLines={2}>{movie.title}</Text>
         <Text style={styles.sub}>{year} · ★ {rating}</Text>
       </View>
-      <Perforation color={TICKET_INK} />
+      <Perforation color={TICKET_INK} height={10} />
       <View style={styles.barcode}>
-        <BarcodeBars width={width - 64} height={24} color={TICKET_INK} />
+        <BarcodeBars width={width - 48} height={18} color={TICKET_INK} />
         <Text style={styles.adminText}>ADMIT ONE · CLAP'</Text>
       </View>
     </View>
@@ -72,16 +72,16 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.gold,
     paddingHorizontal: spacing.m,
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
-  headerText: { fontFamily: fonts.mono, fontSize: 9, color: TICKET_INK, letterSpacing: 1, textTransform: 'uppercase' },
-  posterFrame: { padding: spacing.s, backgroundColor: TICKET_INK },
+  headerText: { fontFamily: fonts.mono, fontSize: 8, color: TICKET_INK, letterSpacing: 0.8, textTransform: 'uppercase' },
+  posterFrame: { padding: 6, backgroundColor: TICKET_INK },
   poster: { width: '100%', aspectRatio: 2 / 3, backgroundColor: '#222' },
   posterFallback: { alignItems: 'center', justifyContent: 'center' },
-  posterFallbackText: { color: TICKET_BG, fontFamily: fonts.serifBold, padding: spacing.md, textAlign: 'center' },
-  meta: { padding: spacing.md, gap: 4 },
-  title: { fontFamily: fonts.serifBold, fontSize: 24, color: TICKET_INK },
-  sub: { fontFamily: fonts.sansMed, fontSize: 12, color: TICKET_INK, fontStyle: 'italic' },
-  barcode: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, alignItems: 'center', gap: 4 },
-  adminText: { fontFamily: fonts.mono, fontSize: 9, color: TICKET_INK, letterSpacing: 1 },
+  posterFallbackText: { color: TICKET_BG, fontFamily: fonts.serifBold, padding: spacing.s, textAlign: 'center' },
+  meta: { paddingHorizontal: spacing.m, paddingTop: 8, paddingBottom: 6, gap: 2 },
+  title: { fontFamily: fonts.serifBold, fontSize: 18, color: TICKET_INK },
+  sub: { fontFamily: fonts.sansMed, fontSize: 11, color: TICKET_INK, fontStyle: 'italic' },
+  barcode: { paddingHorizontal: spacing.md, paddingBottom: spacing.s, alignItems: 'center', gap: 2 },
+  adminText: { fontFamily: fonts.mono, fontSize: 8, color: TICKET_INK, letterSpacing: 0.8 },
 });

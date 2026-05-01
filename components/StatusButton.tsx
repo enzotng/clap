@@ -28,10 +28,10 @@ export const StatusButton = memo(StatusButtonImpl);
 
 const styles = StyleSheet.create({
   btn: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.s,
     paddingVertical: spacing.s,
     borderWidth: 1,
     borderRadius: radius.m,
   },
-  label: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase' },
+  label: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase' },
 });

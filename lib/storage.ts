@@ -12,6 +12,7 @@ export type UserPrefs = {
   name: string;
   preferredGenres: number[];
   onboarded: boolean;
+  tutorialSeen: boolean;
 };
 
 export type Persisted = {
@@ -23,6 +24,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   name: '',
   preferredGenres: [],
   onboarded: false,
+  tutorialSeen: false,
 };
 
 const KEY = 'clap:library:v1';
@@ -47,7 +49,8 @@ function sanitizePrefs(raw: unknown): UserPrefs {
     ? r.preferredGenres.filter((g): g is number => typeof g === 'number' && Number.isFinite(g)).slice(0, 3)
     : DEFAULT_PREFS.preferredGenres;
   const onboarded = r.onboarded === true;
-  return { name, preferredGenres, onboarded };
+  const tutorialSeen = r.tutorialSeen === true;
+  return { name, preferredGenres, onboarded, tutorialSeen };
 }
 
 export async function loadLibrary(): Promise<Persisted> {
