@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   clear: { padding: spacing.xs, marginLeft: spacing.xs },
-  list: { paddingHorizontal: spacing.md, paddingTop: 0, paddingBottom: spacing.lg },
+  list: { paddingHorizontal: spacing.md, paddingTop: 0, paddingBottom: 110 },
   separator: { height: spacing.s },
   spinner: { paddingVertical: spacing.lg },
 });

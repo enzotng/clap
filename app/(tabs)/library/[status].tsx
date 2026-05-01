@@ -99,6 +99,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md },
   title: { fontFamily: fonts.serifBold, fontSize: 24, flex: 1 },
   count: { fontFamily: fonts.mono, color: colors.ink3, fontSize: 12 },
-  list: { padding: spacing.md, paddingTop: 0 },
+  list: { padding: spacing.md, paddingTop: 0, paddingBottom: 110 },
   separator: { height: spacing.s },
 });

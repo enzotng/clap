@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
-  grid: { padding: spacing.md, gap: spacing.md },
+  grid: { padding: spacing.md, paddingBottom: 110, gap: spacing.md },
   card: {
     backgroundColor: colors.bg2,
     borderRadius: radius.l,

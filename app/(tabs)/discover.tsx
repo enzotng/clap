@@ -351,7 +351,7 @@ function TutorialDemo({ movie }: { movie: import('@/lib/tmdb').TmdbMovie }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.bg, paddingBottom: 96 },
   masthead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
