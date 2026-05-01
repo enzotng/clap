@@ -27,7 +27,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   tutorialSeen: false,
 };
 
-const KEY = 'clap:library:v1';
+const KEY = 'clap:library:v2';
 
 function sanitizeById(raw: unknown): Record<number, UserMovieData> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
