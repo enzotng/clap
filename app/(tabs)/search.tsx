@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { Search as SearchIcon, X, SlidersHorizontal } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { useLibrary } from '@/context/LibraryContext';
 import { useTmdbSearch } from '@/hooks/useTmdbSearch';
 import { useTmdbPopular } from '@/hooks/useTmdbPopular';
 import { MovieRow } from '@/components/MovieRow';
@@ -34,12 +35,22 @@ const SORTS: { id: DiscoverSort; label: string }[] = [
 ];
 
 export default function SearchScreen() {
+  const { state, setPrefs } = useLibrary();
   const [query, setQuery] = useState('');
   const [genreId, setGenreId] = useState<number | null>(null);
   const [decadeId, setDecadeId] = useState<string | null>(null);
   const [minRating, setMinRating] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<DiscoverSort>('popularity.desc');
   const [showFilters, setShowFilters] = useState(false);
+
+  const recentQueries = state.prefs.recentQueries;
+
+  const onSubmitQuery = useCallback(() => {
+    const q = query.trim();
+    if (!q) return;
+    const next = [q, ...recentQueries.filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(0, 5);
+    setPrefs({ recentQueries: next });
+  }, [query, recentQueries, setPrefs]);
 
   const trimmedQuery = query.trim();
   const inSearchMode = trimmedQuery.length > 0;
@@ -78,7 +89,14 @@ export default function SearchScreen() {
   if (inSearchMode) {
     return (
       <SafeAreaView style={styles.root} edges={['top']}>
-        <SearchBar value={query} onChange={onChangeQuery} hasFilters={false} showFilters={false} onToggleFilters={() => {}} />
+        <SearchBar
+          value={query}
+          onChange={onChangeQuery}
+          onSubmit={onSubmitQuery}
+          hasFilters={false}
+          showFilters={false}
+          onToggleFilters={() => {}}
+        />
         {searchError ? (
           <EmptyState title="Erreur" subtitle={searchError} />
         ) : searchResults.length === 0 && !searchLoading ? (
@@ -107,10 +125,23 @@ export default function SearchScreen() {
       <SearchBar
         value={query}
         onChange={onChangeQuery}
+        onSubmit={onSubmitQuery}
         hasFilters={hasFilters}
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters((v) => !v)}
       />
+      {recentQueries.length > 0 && (
+        <View style={styles.recentRow}>
+          <Text style={styles.recentLabel}>Récentes</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentChips}>
+            {recentQueries.map((q) => (
+              <Pressable key={q} onPress={() => setQuery(q)} style={styles.recentChip}>
+                <Text style={styles.recentChipText}>{q}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
       <FiltersDropdown
         visible={showFilters}
         onClose={() => setShowFilters(false)}
@@ -171,12 +202,14 @@ function buildSectionTitle(filters: { genreId: number | null; decadeId: string |
 function SearchBar({
   value,
   onChange,
+  onSubmit,
   hasFilters,
   showFilters,
   onToggleFilters,
 }: {
   value: string;
   onChange: (s: string) => void;
+  onSubmit: () => void;
   hasFilters: boolean;
   showFilters: boolean;
   onToggleFilters: () => void;
@@ -187,6 +220,7 @@ function SearchBar({
       <TextInput
         value={value}
         onChangeText={onChange}
+        onSubmitEditing={onSubmit}
         placeholder="Rechercher un film..."
         placeholderTextColor={colors.ink3}
         style={styles.input}
@@ -422,6 +456,24 @@ const styles = StyleSheet.create({
   posterCard: { width: POSTER_W, gap: 6 },
   posterTitle: { fontFamily: fonts.sansMed, color: colors.ink2, fontSize: 11, textAlign: 'center' },
   error: { fontFamily: fonts.sans, color: colors.pass, padding: spacing.md, textAlign: 'center' },
+  recentRow: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, gap: spacing.xs },
+  recentLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    color: colors.ink3,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  recentChips: { gap: spacing.s, paddingVertical: spacing.xs, paddingRight: spacing.md },
+  recentChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: 999,
+    backgroundColor: colors.bg2,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  recentChipText: { fontFamily: fonts.sansMed, color: colors.ink2, fontSize: 12 },
   sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,9,8,0.55)' },
   sheet: {
     position: 'absolute',

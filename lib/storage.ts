@@ -13,6 +13,7 @@ export type UserPrefs = {
   preferredGenres: number[];
   onboarded: boolean;
   tutorialSeen: boolean;
+  recentQueries: string[];
 };
 
 export type Persisted = {
@@ -25,6 +26,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   preferredGenres: [],
   onboarded: false,
   tutorialSeen: false,
+  recentQueries: [],
 };
 
 const KEY = 'clap:library:v2';
@@ -50,7 +52,13 @@ function sanitizePrefs(raw: unknown): UserPrefs {
     : DEFAULT_PREFS.preferredGenres;
   const onboarded = r.onboarded === true;
   const tutorialSeen = r.tutorialSeen === true;
-  return { name, preferredGenres, onboarded, tutorialSeen };
+  const recentQueries = Array.isArray(r.recentQueries)
+    ? r.recentQueries
+        .filter((q): q is string => typeof q === 'string' && q.trim().length > 0)
+        .map((q) => q.trim().slice(0, 60))
+        .slice(0, 5)
+    : DEFAULT_PREFS.recentQueries;
+  return { name, preferredGenres, onboarded, tutorialSeen, recentQueries };
 }
 
 export async function loadLibrary(): Promise<Persisted> {
