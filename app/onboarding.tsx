@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -62,7 +62,7 @@ export default function OnboardingScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <PageWelcome onNext={() => goPage(1)} width={SCREEN_W} />
-        <PageName name={name} setName={setName} onNext={() => goPage(2)} width={SCREEN_W} />
+        <PageName name={name} setName={setName} onNext={() => goPage(2)} width={SCREEN_W} active={page === 1} />
         <PageGenres genres={genres} toggleGenre={toggleGenre} onFinish={finish} width={SCREEN_W} />
       </ScrollView>
     </SafeAreaView>
@@ -89,24 +89,34 @@ function PageName({
   setName,
   onNext,
   width,
+  active,
 }: {
   name: string;
   setName: (s: string) => void;
   onNext: () => void;
   width: number;
+  active: boolean;
 }) {
+  const inputRef = useRef<TextInput>(null);
   const canProceed = name.trim().length > 0;
+
+  useEffect(() => {
+    if (!active) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 350);
+    return () => clearTimeout(t);
+  }, [active]);
+
   return (
     <View style={[styles.page, { width }]}>
       <Text style={styles.eyebrow}>FAISONS CONNAISSANCE</Text>
       <Text style={styles.h1}>Comment t'appelle-t-on ?</Text>
       <TextInput
+        ref={inputRef}
         value={name}
         onChangeText={setName}
         placeholder="Cinéphile..."
         placeholderTextColor={colors.ink3}
         style={styles.input}
-        autoFocus
         autoCapitalize="words"
         autoCorrect={false}
         maxLength={32}
