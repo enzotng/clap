@@ -106,15 +106,30 @@ async function tmdb<T>(path: string, params: Record<string, string | number> = {
   }
 }
 
+export type DiscoverSort = 'popularity.desc' | 'vote_average.desc' | 'primary_release_date.desc';
+
+export type DiscoverOpts = {
+  withGenres?: string;
+  yearFrom?: number;
+  yearTo?: number;
+  voteAverageGte?: number;
+  voteCountGte?: number;
+  sortBy?: DiscoverSort;
+};
+
 export const tmdbApi = {
-  discover: (page: number, signal?: AbortSignal, withGenres?: string) =>
-    tmdb<TmdbSearchPage>(
-      '/discover/movie',
-      withGenres
-        ? { sort_by: 'popularity.desc', page, with_genres: withGenres }
-        : { sort_by: 'popularity.desc', page },
-      signal,
-    ),
+  discover: (page: number, opts: DiscoverOpts = {}, signal?: AbortSignal) => {
+    const params: Record<string, string | number> = {
+      page,
+      sort_by: opts.sortBy ?? 'popularity.desc',
+    };
+    if (opts.withGenres) params.with_genres = opts.withGenres;
+    if (opts.yearFrom) params['primary_release_date.gte'] = `${opts.yearFrom}-01-01`;
+    if (opts.yearTo) params['primary_release_date.lte'] = `${opts.yearTo}-12-31`;
+    if (opts.voteAverageGte) params['vote_average.gte'] = opts.voteAverageGte;
+    if (opts.voteCountGte) params['vote_count.gte'] = opts.voteCountGte;
+    return tmdb<TmdbSearchPage>('/discover/movie', params, signal);
+  },
   search: (query: string, page: number, signal?: AbortSignal) =>
     tmdb<TmdbSearchPage>('/search/movie', { query, page, include_adult: 'false' }, signal),
   movie: (id: number, signal?: AbortSignal) =>

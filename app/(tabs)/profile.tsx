@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
 import { ChevronRight } from 'lucide-react-native';
 import { useLibrary } from '@/context/LibraryContext';
-import { tmdbApi, type TmdbMovie } from '@/lib/tmdb';
+import { useMoviesById } from '@/hooks/useMoviesById';
 import { GENRES } from '@/lib/genres';
 import { formatDateFr } from '@/lib/format';
 import { MoviePoster } from '@/components/MoviePoster';
@@ -189,39 +189,6 @@ function StatRow({ status, count, max, delay }: { status: Status; count: number;
       <Text style={styles.statCount}>{count}</Text>
     </View>
   );
-}
-
-function useMoviesById(ids: number[]): Record<number, TmdbMovie | undefined> {
-  const [moviesById, setMoviesById] = useState<Record<number, TmdbMovie>>({});
-  const idsKey = ids.join(',');
-  const moviesByIdRef = useRef(moviesById);
-  useEffect(() => {
-    moviesByIdRef.current = moviesById;
-  }, [moviesById]);
-
-  useEffect(() => {
-    const missing = ids.filter((id) => !moviesByIdRef.current[id]);
-    if (missing.length === 0) return;
-    let cancelled = false;
-    Promise.all(missing.map((id) => tmdbApi.movie(id).then((m) => ({ id, m })).catch(() => null))).then(
-      (results) => {
-        if (cancelled) return;
-        setMoviesById((prev) => {
-          const next = { ...prev };
-          for (const r of results) {
-            if (r) next[r.id] = r.m;
-          }
-          return next;
-        });
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey]);
-
-  return moviesById;
 }
 
 const styles = StyleSheet.create({

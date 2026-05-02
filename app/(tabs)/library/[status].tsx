@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useLocalSearchParams, router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useLibrary } from '@/context/LibraryContext';
-import { tmdbApi, type TmdbMovie } from '@/lib/tmdb';
+import { useMoviesById } from '@/hooks/useMoviesById';
+import type { TmdbMovie } from '@/lib/tmdb';
 import { MovieRow } from '@/components/MovieRow';
 import { EmptyState } from '@/components/EmptyState';
 import { colors, fonts, spacing, STATUS_COLORS, STATUS_LABELS, type Status } from '@/theme/tokens';
@@ -22,35 +23,7 @@ export default function LibraryStatusScreen() {
 
   const { getByStatus } = useLibrary();
   const ids = getByStatus(validStatus);
-  const idsKey = ids.join(',');
-
-  const [moviesById, setMoviesById] = useState<Record<number, TmdbMovie>>({});
-  const moviesByIdRef = useRef(moviesById);
-  useEffect(() => {
-    moviesByIdRef.current = moviesById;
-  }, [moviesById]);
-
-  useEffect(() => {
-    const missing = ids.filter((id) => !moviesByIdRef.current[id]);
-    if (missing.length === 0) return;
-    let cancelled = false;
-    Promise.all(missing.map((id) => tmdbApi.movie(id).then((m) => ({ id, m })).catch(() => null))).then(
-      (results) => {
-        if (cancelled) return;
-        setMoviesById((prev) => {
-          const next = { ...prev };
-          for (const r of results) {
-            if (r) next[r.id] = r.m;
-          }
-          return next;
-        });
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey]);
+  const moviesById = useMoviesById(ids);
 
   const data = useMemo(
     () => ids.map((id) => moviesById[id]).filter((m): m is TmdbMovie => Boolean(m)),

@@ -37,7 +37,7 @@ export function useTmdbDiscover() {
     try {
       pageRef.current += 1;
       const genres = genresRef.current.length > 0 ? genresRef.current.join(',') : undefined;
-      const page = await tmdbApi.discover(pageRef.current, undefined, genres);
+      const page = await tmdbApi.discover(pageRef.current, { withGenres: genres });
       totalPagesRef.current = page.total_pages;
       const current = libRef.current;
       const fresh = page.results.filter((m) => {
