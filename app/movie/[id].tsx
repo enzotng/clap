@@ -1,9 +1,9 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, TextInput, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, FlatList, TextInput, Dimensions, Share } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolate, Extrapolation } from 'react-native-reanimated';
 import { useLocalSearchParams, router, Link } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, Share2 } from 'lucide-react-native';
 import { useTmdbMovie } from '@/hooks/useTmdbMovie';
 import { useLibrary } from '@/context/LibraryContext';
 import { posterUrl } from '@/lib/tmdb';
@@ -91,6 +91,9 @@ function DetailContent({ movie, movieId }: { movie: TmdbMovieDetail; movieId: nu
       <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10}>
         <ChevronLeft color={colors.ink} size={22} strokeWidth={1.8} />
       </Pressable>
+      <Pressable onPress={() => onShare(movie)} style={styles.shareBtn} hitSlop={10}>
+        <Share2 color={colors.ink} size={20} strokeWidth={1.8} />
+      </Pressable>
 
       <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={styles.scroll}>
         <View style={{ height: HERO_H - 60 }} />
@@ -152,6 +155,17 @@ function DetailContent({ movie, movieId }: { movie: TmdbMovieDetail; movieId: nu
       </Animated.ScrollView>
     </View>
   );
+}
+
+async function onShare(movie: TmdbMovieDetail) {
+  const year = movie.release_date?.slice(0, 4) ?? '';
+  const url = `https://www.themoviedb.org/movie/${movie.id}`;
+  const message = year ? `${movie.title} (${year}) — ${url}` : `${movie.title} — ${url}`;
+  try {
+    await Share.share({ message, url, title: movie.title });
+  } catch {
+    // user cancel or error: silent
+  }
 }
 
 function castKey(item: TmdbCast) {
@@ -275,6 +289,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 50,
     left: spacing.md,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(10,9,8,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareBtn: {
+    position: 'absolute',
+    top: 50,
+    right: spacing.md,
     zIndex: 10,
     width: 36,
     height: 36,
