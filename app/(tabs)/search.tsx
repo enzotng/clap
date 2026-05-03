@@ -229,11 +229,23 @@ function SearchBar({
         returnKeyType="search"
       />
       {value.length > 0 ? (
-        <Pressable onPress={() => onChange('')} hitSlop={10} style={styles.iconBtn}>
+        <Pressable
+          onPress={() => onChange('')}
+          hitSlop={10}
+          style={styles.iconBtn}
+          accessibilityLabel="Effacer la recherche"
+          accessibilityRole="button"
+        >
           <X size={18} color={colors.ink3} strokeWidth={1.8} />
         </Pressable>
       ) : (
-        <Pressable onPress={onToggleFilters} hitSlop={10} style={styles.iconBtn}>
+        <Pressable
+          onPress={onToggleFilters}
+          hitSlop={10}
+          style={styles.iconBtn}
+          accessibilityLabel="Filtres"
+          accessibilityRole="button"
+        >
           <SlidersHorizontal
             size={18}
             color={showFilters ? colors.gold : colors.ink3}

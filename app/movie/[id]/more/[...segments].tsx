@@ -41,7 +41,7 @@ export default function MovieMoreScreen() {
 function Header({ title }: { title: string }) {
   return (
     <View style={styles.header}>
-      <Pressable onPress={() => router.back()} hitSlop={10}>
+      <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Retour" accessibilityRole="button">
         <ChevronLeft color={colors.ink} size={22} strokeWidth={1.8} />
       </Pressable>
       <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>

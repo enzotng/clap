@@ -31,14 +31,29 @@ export const DEFAULT_PREFS: UserPrefs = {
 
 const KEY = 'clap:library:v2';
 
+const VALID_STATUSES: ReadonlyArray<Status> = ['watch', 'seen', 'fav', 'pass'];
+
+function isValidStatus(s: unknown): s is Status {
+  return typeof s === 'string' && (VALID_STATUSES as ReadonlyArray<string>).includes(s);
+}
+
 function sanitizeById(raw: unknown): Record<number, UserMovieData> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const out: Record<number, UserMovieData> = {};
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
     const id = Number(k);
     if (!Number.isFinite(id)) continue;
-    if (!v || typeof v !== 'object') continue;
-    out[id] = v as UserMovieData;
+    if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
+    const r = v as Record<string, unknown>;
+    const status = isValidStatus(r.status) ? r.status : undefined;
+    const rating =
+      typeof r.rating === 'number' && Number.isFinite(r.rating) && r.rating >= 0 && r.rating <= 5
+        ? Math.round(r.rating)
+        : undefined;
+    const note = typeof r.note === 'string' ? r.note.slice(0, 1000) : undefined;
+    const addedAt =
+      typeof r.addedAt === 'number' && Number.isFinite(r.addedAt) ? r.addedAt : Date.now();
+    out[id] = { status, rating, note, addedAt };
   }
   return out;
 }

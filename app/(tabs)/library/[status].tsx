@@ -60,7 +60,7 @@ export default function LibraryStatusScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Retour" accessibilityRole="button">
           <ChevronLeft color={colors.ink} size={22} strokeWidth={1.8} />
         </Pressable>
         <Text style={[styles.title, { color: STATUS_COLORS[validStatus] }]}>{STATUS_LABELS[validStatus]}</Text>

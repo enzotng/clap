@@ -88,10 +88,10 @@ function DetailContent({ movie, movieId }: { movie: TmdbMovieDetail; movieId: nu
         <View style={styles.heroOverlay} />
       </Animated.View>
 
-      <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10}>
+      <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10} accessibilityLabel="Retour" accessibilityRole="button">
         <ChevronLeft color={colors.ink} size={22} strokeWidth={1.8} />
       </Pressable>
-      <Pressable onPress={() => onShare(movie)} style={styles.shareBtn} hitSlop={10}>
+      <Pressable onPress={() => onShare(movie)} style={styles.shareBtn} hitSlop={10} accessibilityLabel="Partager" accessibilityRole="button">
         <Share2 color={colors.ink} size={20} strokeWidth={1.8} />
       </Pressable>
 
@@ -236,6 +236,7 @@ function NotesEditorImpl({ movieId }: { movieId: number }) {
       onBlur={onBlur}
       multiline
       textAlignVertical="top"
+      maxLength={1000}
     />
   );
 }

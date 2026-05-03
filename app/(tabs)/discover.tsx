@@ -272,7 +272,13 @@ export default function DiscoverScreen() {
       </View>
 
       {lastSwipe && (
-        <Pressable onPress={onUndo} style={styles.undoBtn} hitSlop={8}>
+        <Pressable
+          onPress={onUndo}
+          style={styles.undoBtn}
+          hitSlop={8}
+          accessibilityLabel="Annuler le dernier swipe"
+          accessibilityRole="button"
+        >
           <Undo2 size={16} color={colors.gold} strokeWidth={1.8} />
           <Text style={styles.undoText}>Annuler</Text>
         </Pressable>
