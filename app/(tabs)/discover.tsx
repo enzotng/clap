@@ -222,7 +222,7 @@ export default function DiscoverScreen() {
     }
     return (
       <SafeAreaView style={styles.root} edges={['top']}>
-        <EmptyState title="FIN" subtitle="Générique de fin — Une production Clap', Réalisée par toi." />
+        <EmptyState title="FIN" subtitle="Générique de fin - Une production Clap', Réalisée par toi." />
         <Pressable style={styles.refill} onPress={refill}>
           <Text style={styles.refillText}>RECHARGER LA BOBINE</Text>
         </Pressable>

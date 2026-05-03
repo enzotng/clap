@@ -55,7 +55,7 @@ export default function ProfileScreen() {
   const onAbout = useCallback(() => {
     Alert.alert(
       'À propos',
-      `Clap' v${APP_VERSION}\n\nLe tri des films, à coups de ticket.\nProjet React Native ECV — propulsé par TMDB.`,
+      `Clap' v${APP_VERSION}\n\nLe tri des films, à coups de ticket.\nProjet React Native ECV - propulsé par TMDB.`,
       [{ text: 'OK' }],
     );
   }, []);

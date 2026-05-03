@@ -113,4 +113,4 @@ theme/tokens.ts                        # colors, fonts, spacing, radius, status 
 
 ## Auteur
 
-Enzo Tang — projet ECV 2026
+Enzo Tang - projet ECV 2026

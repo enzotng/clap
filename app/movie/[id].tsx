@@ -160,7 +160,7 @@ function DetailContent({ movie, movieId }: { movie: TmdbMovieDetail; movieId: nu
 async function onShare(movie: TmdbMovieDetail) {
   const year = movie.release_date?.slice(0, 4) ?? '';
   const url = `https://www.themoviedb.org/movie/${movie.id}`;
-  const message = year ? `${movie.title} (${year}) — ${url}` : `${movie.title} — ${url}`;
+  const message = year ? `${movie.title} (${year}) - ${url}` : `${movie.title} - ${url}`;
   try {
     await Share.share({ message, url, title: movie.title });
   } catch {
