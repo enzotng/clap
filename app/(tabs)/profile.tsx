@@ -6,6 +6,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } fro
 import { ChevronRight } from 'lucide-react-native';
 import { useLibrary } from '@/context/LibraryContext';
 import { useMoviesById } from '@/hooks/useMoviesById';
+import { useAdvancedStats } from '@/hooks/useAdvancedStats';
 import { GENRES } from '@/lib/genres';
 import { formatDateFr } from '@/lib/format';
 import { MoviePoster } from '@/components/MoviePoster';
@@ -37,6 +38,8 @@ export default function ProfileScreen() {
     () => GENRES.filter((g) => state.prefs.preferredGenres.includes(g.id)),
     [state.prefs.preferredGenres],
   );
+
+  const { stats: advanced } = useAdvancedStats();
 
   const onClear = useCallback(() => {
     Alert.alert(
@@ -107,6 +110,40 @@ export default function ProfileScreen() {
                 <Text style={styles.lastSeenDate}>{lastSeenAt ? formatDateFr(new Date(lastSeenAt).toISOString()) : ''}</Text>
               </View>
             </Pressable>
+          </Section>
+        )}
+
+        {advanced && (advanced.topGenres.length > 0 || advanced.favoriteDecade || advanced.recurrentDirector) && (
+          <Section title="Tes habitudes">
+            {advanced.topGenres.length > 0 && (
+              <View style={styles.habitRow}>
+                <Text style={styles.habitLabel}>Genres dominants</Text>
+                <View style={styles.habitGenres}>
+                  {advanced.topGenres.map((g) => (
+                    <View key={g.name} style={styles.habitGenreChip}>
+                      <Text style={styles.habitGenreText}>{g.name}</Text>
+                      <Text style={styles.habitGenreCount}>{g.count}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+            {advanced.favoriteDecade && (
+              <View style={styles.habitRow}>
+                <Text style={styles.habitLabel}>Décennie favorite</Text>
+                <Text style={styles.habitValue}>
+                  {advanced.favoriteDecade.decade}s · {advanced.favoriteDecade.count} films
+                </Text>
+              </View>
+            )}
+            {advanced.recurrentDirector && (
+              <View style={styles.habitRow}>
+                <Text style={styles.habitLabel}>Réalisateur récurrent</Text>
+                <Text style={styles.habitValue}>
+                  {advanced.recurrentDirector.name} · {advanced.recurrentDirector.count} films
+                </Text>
+              </View>
+            )}
           </Section>
         )}
 
@@ -273,4 +310,28 @@ const styles = StyleSheet.create({
   },
   settingRowPressed: { opacity: 0.7 },
   settingLabel: { fontFamily: fonts.sansMed, fontSize: 14 },
+  habitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.s,
+    gap: spacing.md,
+    flexWrap: 'wrap',
+  },
+  habitLabel: { fontFamily: fonts.sansMed, color: colors.ink2, fontSize: 13 },
+  habitValue: { fontFamily: fonts.serifBold, color: colors.ink, fontSize: 14 },
+  habitGenres: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  habitGenreChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: colors.bg3,
+    borderWidth: 1,
+    borderColor: colors.line2,
+  },
+  habitGenreText: { fontFamily: fonts.sansMed, color: colors.ink, fontSize: 12 },
+  habitGenreCount: { fontFamily: fonts.mono, color: colors.gold, fontSize: 11 },
 });
