@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, router, usePathname } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -8,6 +8,7 @@ import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-googl
 import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import * as SplashScreen from 'expo-splash-screen';
 import { LibraryProvider, useLibrary } from '@/context/LibraryContext';
+import { ClapSplash } from '@/components/ClapSplash';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -45,6 +46,7 @@ export default function RootLayout() {
     DMSans_700Bold,
     JetBrainsMono_500Medium,
   });
+  const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync().catch(() => {});
@@ -76,6 +78,7 @@ export default function RootLayout() {
           </Stack>
         </HydrationGate>
       </LibraryProvider>
+      {!splashDone && <ClapSplash onDone={() => setSplashDone(true)} />}
     </GestureHandlerRootView>
   );
 }
