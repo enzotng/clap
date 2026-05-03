@@ -1,26 +1,49 @@
-import { useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Modal, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
-import { ChevronRight } from 'lucide-react-native';
-import { useLibrary } from '@/context/LibraryContext';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withDelay,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+} from 'react-native-reanimated';
+import { ChevronRight, ExternalLink } from 'lucide-react-native';
+import { useLibraryActions, useLibraryState } from '@/context/LibraryContext';
 import { useMoviesById } from '@/hooks/useMoviesById';
 import { useAdvancedStats } from '@/hooks/useAdvancedStats';
 import { GENRES } from '@/lib/genres';
 import { formatDateFr } from '@/lib/format';
 import { MoviePoster } from '@/components/MoviePoster';
 import { RatingStars } from '@/components/RatingStars';
-import { colors, fonts, radius, spacing, STATUS_COLORS, STATUS_LABELS, type Status } from '@/theme/tokens';
+import {
+  colors,
+  fonts,
+  radius,
+  spacing,
+  STATUS_COLORS,
+  STATUS_LABELS,
+  TAB_BAR_HEIGHT,
+  TAB_BAR_BOTTOM_INSET,
+  type Status,
+} from '@/theme/tokens';
 
 const STATUSES: Status[] = ['watch', 'seen', 'fav', 'pass'];
 const APP_VERSION = '1.0.0';
+const TMDB_URL = 'https://www.themoviedb.org/';
+const SCROLL_BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_INSET + spacing.lg;
 
 export default function ProfileScreen() {
-  const { state, counts, averageRating, getByStatus, clear, setPrefs } = useLibrary();
+  const { state, counts, averageRating, getByStatus } = useLibraryState();
+  const { clear } = useLibraryActions();
   const userName = state.prefs.name || 'Cinéphile';
   const total = counts.watch + counts.seen + counts.fav + counts.pass;
   const max = Math.max(1, ...STATUSES.map((s) => counts[s]));
+  const [showAbout, setShowAbout] = useState(false);
 
   const topFavIds = useMemo(() => getByStatus('fav').slice(0, 3), [getByStatus]);
   const lastSeenId = useMemo(() => getByStatus('seen')[0], [getByStatus]);
@@ -52,13 +75,8 @@ export default function ProfileScreen() {
     );
   }, [clear]);
 
-  const onAbout = useCallback(() => {
-    Alert.alert(
-      'À propos',
-      `Clap' v${APP_VERSION}\n\nLe tri des films, à coups de ticket.\nProjet React Native ECV - propulsé par TMDB.`,
-      [{ text: 'OK' }],
-    );
-  }, []);
+  const onAbout = useCallback(() => setShowAbout(true), []);
+  const onCloseAbout = useCallback(() => setShowAbout(false), []);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -87,6 +105,8 @@ export default function ProfileScreen() {
                     key={id}
                     onPress={() => router.push({ pathname: '/movie/[id]', params: { id: String(id) } })}
                     style={styles.favItem}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Favori numéro ${i + 1} : ${movie?.title ?? 'film en chargement'}`}
                   >
                     <Text style={styles.favRank}>{i + 1}</Text>
                     <MoviePoster path={movie?.poster_path ?? null} size="w185" width={90} title={movie?.title ?? '...'} />
@@ -103,6 +123,8 @@ export default function ProfileScreen() {
             <Pressable
               onPress={() => router.push({ pathname: '/movie/[id]', params: { id: String(lastSeenMovie.id) } })}
               style={styles.lastSeenCard}
+              accessibilityRole="button"
+              accessibilityLabel={`Dernier vu : ${lastSeenMovie.title}`}
             >
               <MoviePoster path={lastSeenMovie.poster_path} size="w185" width={72} title={lastSeenMovie.title} />
               <View style={styles.lastSeenBody}>
@@ -181,7 +203,58 @@ export default function ProfileScreen() {
           <SettingRow label="Vider la bibliothèque" onPress={onClear} danger />
         </Section>
       </ScrollView>
+
+      <AboutModal visible={showAbout} onClose={onCloseAbout} />
     </SafeAreaView>
+  );
+}
+
+function AboutModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const openTmdb = useCallback(() => {
+    Linking.openURL(TMDB_URL).catch(() => {});
+  }, []);
+
+  return (
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.aboutBackdrop}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Fermer"
+        />
+      </Animated.View>
+      <Animated.View
+        entering={SlideInDown.duration(280)}
+        exiting={SlideOutDown.duration(200)}
+        style={styles.aboutSheet}
+        accessibilityViewIsModal
+      >
+        <SafeAreaView edges={['bottom']}>
+          <View style={styles.aboutHandle} />
+          <View style={styles.aboutBody}>
+            <Text style={styles.aboutTitle}>Clap'</Text>
+            <Text style={styles.aboutVersion}>Version {APP_VERSION}</Text>
+            <Text style={styles.aboutTagline}>Le tri des films, à coups de ticket.</Text>
+            <Text style={styles.aboutDesc}>Projet React Native ECV - 2026.</Text>
+            <View style={styles.aboutDivider} />
+            <Text style={styles.aboutAttrLabel}>Données fournies par</Text>
+            <Pressable
+              onPress={openTmdb}
+              style={styles.aboutLinkBtn}
+              accessibilityRole="link"
+              accessibilityLabel="Ouvrir le site TMDB"
+            >
+              <Text style={styles.aboutLinkText}>The Movie Database</Text>
+              <ExternalLink size={16} color={colors.gold} strokeWidth={1.8} />
+            </Pressable>
+            <Text style={styles.aboutAttrFinePrint}>
+              Cette application utilise l'API TMDB sans en être endossée ni certifiée par TMDB.
+            </Text>
+          </View>
+        </SafeAreaView>
+      </Animated.View>
+    </Modal>
   );
 }
 
@@ -200,6 +273,8 @@ function SettingRow({ label, onPress, danger }: { label: string; onPress: () => 
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.settingRow, pressed && styles.settingRowPressed]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
     >
       <Text style={[styles.settingLabel, { color: tint }]}>{label}</Text>
       <ChevronRight size={18} color={colors.ink3} strokeWidth={1.8} />
@@ -230,7 +305,7 @@ function StatRow({ status, count, max, delay }: { status: Status; count: number;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  scroll: { padding: spacing.lg, paddingBottom: 110, gap: spacing.s },
+  scroll: { padding: spacing.lg, paddingBottom: SCROLL_BOTTOM_PAD, gap: spacing.s },
   avatarBlock: { alignItems: 'center', gap: spacing.xs, marginBottom: spacing.s },
   avatar: {
     width: 88,
@@ -334,4 +409,70 @@ const styles = StyleSheet.create({
   },
   habitGenreText: { fontFamily: fonts.sansMed, color: colors.ink, fontSize: 12 },
   habitGenreCount: { fontFamily: fonts.mono, color: colors.gold, fontSize: 11 },
+  aboutBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,9,8,0.55)' },
+  aboutSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: '85%',
+    backgroundColor: colors.bg2,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    elevation: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -8 },
+    borderTopWidth: 1,
+    borderColor: colors.line2,
+  },
+  aboutHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.line2,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  aboutBody: { padding: spacing.lg, gap: spacing.s, alignItems: 'center' },
+  aboutTitle: { fontFamily: fonts.serifItalic, fontSize: 56, color: colors.gold },
+  aboutVersion: { fontFamily: fonts.mono, fontSize: 12, color: colors.ink3, letterSpacing: 1 },
+  aboutTagline: { fontFamily: fonts.serif, fontSize: 16, color: colors.ink, textAlign: 'center', marginTop: spacing.s },
+  aboutDesc: { fontFamily: fonts.sans, fontSize: 13, color: colors.ink2, textAlign: 'center' },
+  aboutDivider: {
+    width: 40,
+    height: 1,
+    backgroundColor: colors.line2,
+    marginVertical: spacing.md,
+  },
+  aboutAttrLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    color: colors.ink3,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  aboutLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.s,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.s,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: radius.m,
+    marginTop: spacing.xs,
+  },
+  aboutLinkText: { fontFamily: fonts.sansMed, color: colors.gold, fontSize: 14 },
+  aboutAttrFinePrint: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.ink3,
+    textAlign: 'center',
+    marginTop: spacing.s,
+    paddingHorizontal: spacing.md,
+    lineHeight: 16,
+  },
 });

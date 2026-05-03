@@ -36,8 +36,8 @@ export type TmdbCrew = {
 };
 
 export type TmdbMovieDetail = TmdbMovie & {
-  credits: { cast: TmdbCast[]; crew: TmdbCrew[] };
-  similar: { results: TmdbMovie[] };
+  credits?: { cast: TmdbCast[]; crew: TmdbCrew[] };
+  similar?: { results: TmdbMovie[] };
 };
 
 export type TmdbSearchPage = {
@@ -60,18 +60,35 @@ export type TmdbPerson = {
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 200;
+const FETCH_TIMEOUT_MS = 12000;
+
 const cache = new Map<string, { data: unknown; ts: number }>();
 const inFlight = new Map<string, Promise<unknown>>();
 
 function safeId(id: number): string {
   if (!Number.isFinite(id) || !Number.isInteger(id) || id <= 0) {
-    throw new Error(`TMDB id invalide: ${id}`);
+    throw new Error(`Identifiant invalide: ${id}`);
   }
   return String(id);
 }
 
+function cacheSet(url: string, data: unknown) {
+  cache.set(url, { data, ts: Date.now() });
+  if (cache.size > CACHE_MAX_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
+}
+
+function abortError(): Error {
+  const e = new Error('Aborted');
+  e.name = 'AbortError';
+  return e;
+}
+
 async function tmdb<T>(path: string, params: Record<string, string | number> = {}, signal?: AbortSignal): Promise<T> {
-  if (!TOKEN) throw new Error('EXPO_PUBLIC_TMDB_TOKEN manquant - configurez .env');
+  if (!TOKEN) throw new Error('Configuration manquante : EXPO_PUBLIC_TMDB_TOKEN');
 
   const qs = new URLSearchParams({
     language: 'fr-FR',
@@ -81,29 +98,59 @@ async function tmdb<T>(path: string, params: Record<string, string | number> = {
 
   const cached = cache.get(url);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    if (signal?.aborted) throw abortError();
     return cached.data as T;
   }
 
-  const pending = inFlight.get(url);
-  if (pending) return pending as Promise<T>;
-
-  const promise = (async () => {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${TOKEN}`, accept: 'application/json' },
-      signal,
+  let shared = inFlight.get(url) as Promise<T> | undefined;
+  if (!shared) {
+    shared = (async () => {
+      const timeoutCtl = new AbortController();
+      const timer = setTimeout(() => timeoutCtl.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${TOKEN}`, accept: 'application/json' },
+          signal: timeoutCtl.signal,
+        });
+        if (!res.ok) throw new Error(`Service indisponible (${res.status})`);
+        const data = (await res.json()) as unknown;
+        if (data === null || typeof data !== 'object') {
+          throw new Error('Réponse invalide');
+        }
+        cacheSet(url, data);
+        return data as T;
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
+    inFlight.set(url, shared);
+    shared.finally(() => {
+      if (inFlight.get(url) === shared) inFlight.delete(url);
     });
-    if (!res.ok) throw new Error(`TMDB ${res.status} sur ${path}`);
-    const data = (await res.json()) as T;
-    cache.set(url, { data, ts: Date.now() });
-    return data;
-  })();
-
-  inFlight.set(url, promise);
-  try {
-    return await promise;
-  } finally {
-    inFlight.delete(url);
   }
+
+  if (!signal) return shared;
+  return new Promise<T>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(abortError());
+      return;
+    }
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort);
+      reject(abortError());
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    shared.then(
+      (v) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(v);
+      },
+      (e) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(e);
+      },
+    );
+  });
 }
 
 export type DiscoverSort = 'popularity.desc' | 'vote_average.desc' | 'primary_release_date.desc';

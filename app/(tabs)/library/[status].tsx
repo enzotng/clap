@@ -4,12 +4,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useLocalSearchParams, router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
-import { useLibrary } from '@/context/LibraryContext';
+import { useLibraryState } from '@/context/LibraryContext';
 import { useMoviesById } from '@/hooks/useMoviesById';
 import type { TmdbMovie } from '@/lib/tmdb';
 import { MovieRow } from '@/components/MovieRow';
 import { EmptyState } from '@/components/EmptyState';
-import { colors, fonts, radius, spacing, STATUS_COLORS, STATUS_LABELS, type Status } from '@/theme/tokens';
+import {
+  colors,
+  fonts,
+  radius,
+  spacing,
+  STATUS_COLORS,
+  STATUS_LABELS,
+  TAB_BAR_HEIGHT,
+  TAB_BAR_BOTTOM_INSET,
+  type Status,
+} from '@/theme/tokens';
 
 type SortMode = 'date' | 'title' | 'rating';
 
@@ -25,11 +35,13 @@ function isStatus(s: string | undefined): s is Status {
   return typeof s === 'string' && (VALID_STATUSES as readonly string[]).includes(s);
 }
 
+const SCROLL_BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_INSET + spacing.lg;
+
 export default function LibraryStatusScreen() {
   const { status } = useLocalSearchParams<{ status: string }>();
   const validStatus: Status = isStatus(status) ? status : 'watch';
 
-  const { getByStatus, getRating } = useLibrary();
+  const { getByStatus, getRating } = useLibraryState();
   const ids = getByStatus(validStatus);
   const moviesById = useMoviesById(ids);
   const [sortMode, setSortMode] = useState<SortMode>('date');
@@ -60,7 +72,12 @@ export default function LibraryStatusScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Retour" accessibilityRole="button">
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          accessibilityLabel="Retour à la bibliothèque"
+          accessibilityRole="button"
+        >
           <ChevronLeft color={colors.ink} size={22} strokeWidth={1.8} />
         </Pressable>
         <Text style={[styles.title, { color: STATUS_COLORS[validStatus] }]}>{STATUS_LABELS[validStatus]}</Text>
@@ -73,6 +90,10 @@ export default function LibraryStatusScreen() {
               key={m}
               onPress={() => setSortMode(m)}
               style={[styles.sortChip, sortMode === m && styles.sortChipActive]}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={`Trier par ${SORT_LABELS[m]}`}
+              accessibilityState={{ selected: sortMode === m }}
             >
               <Text style={[styles.sortChipText, sortMode === m && styles.sortChipTextActive]}>
                 {SORT_LABELS[m]}
@@ -91,6 +112,10 @@ export default function LibraryStatusScreen() {
           itemLayoutAnimation={LinearTransition.springify()}
           ItemSeparatorComponent={ItemSeparator}
           contentContainerStyle={styles.list}
+          initialNumToRender={8}
+          maxToRenderPerBatch={6}
+          windowSize={9}
+          removeClippedSubviews
         />
       )}
     </SafeAreaView>
@@ -102,12 +127,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md },
   title: { fontFamily: fonts.serifBold, fontSize: 24, flex: 1 },
   count: { fontFamily: fonts.mono, color: colors.ink3, fontSize: 12 },
-  list: { padding: spacing.md, paddingTop: 0, paddingBottom: 110 },
+  list: { padding: spacing.md, paddingTop: 0, paddingBottom: SCROLL_BOTTOM_PAD },
   separator: { height: spacing.s },
   sortRow: { gap: spacing.s, paddingHorizontal: spacing.md, paddingBottom: spacing.s },
   sortChip: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.s,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.line2,

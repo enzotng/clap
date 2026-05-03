@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { BarcodeBars } from './BarcodeBars';
 import { Perforation } from './Perforation';
 import { posterUrl } from '@/lib/tmdb';
+import { TICKET_NUM_BASE } from '@/lib/constants';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { TmdbMovie } from '@/lib/tmdb';
 
@@ -21,7 +22,7 @@ type Props = {
 function MovieTicketImpl({ movie, width, index = 1, onTap = true }: Props) {
   const url = posterUrl(movie.poster_path, 'w500');
   const year = movie.release_date ? movie.release_date.slice(0, 4) : '----';
-  const ticketNum = String(127 + index).padStart(4, '0');
+  const ticketNum = String(TICKET_NUM_BASE + index).padStart(4, '0');
   const rating = (movie.vote_average ?? 0).toFixed(1);
 
   const onPress = useCallback(() => {

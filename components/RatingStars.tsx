@@ -15,7 +15,12 @@ const POP_EASING = Easing.bezier(0.34, 1.56, 0.64, 1);
 
 export function RatingStars({ value, onChange, size = 24, interactive = false }: Props) {
   return (
-    <View style={styles.row}>
+    <View
+      style={styles.row}
+      accessibilityRole={interactive ? 'adjustable' : 'image'}
+      accessibilityLabel={interactive ? 'Note du film' : `Note ${value} sur 5`}
+      accessibilityValue={{ min: 0, max: 5, now: value }}
+    >
       {[1, 2, 3, 4, 5].map((i) => (
         <StarItem key={i} index={i} value={value} size={size} interactive={interactive} onChange={onChange} />
       ))}
@@ -50,9 +55,16 @@ function StarItem({
   }, [interactive, index, onChange, scale]);
 
   return (
-    <Pressable onPress={onPress} disabled={!interactive} hitSlop={4}>
+    <Pressable
+      onPress={onPress}
+      disabled={!interactive}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={`${index} étoile${index > 1 ? 's' : ''}`}
+      accessibilityState={{ selected: filled }}
+    >
       <Animated.View style={animatedStyle}>
-        <Star size={size} color={filled ? colors.gold : colors.ink4} fill={filled ? colors.gold : 'transparent'} strokeWidth={1.6} />
+        <Star size={size} color={filled ? colors.gold : colors.ink3} fill={filled ? colors.gold : 'transparent'} strokeWidth={1.6} />
       </Animated.View>
     </Pressable>
   );

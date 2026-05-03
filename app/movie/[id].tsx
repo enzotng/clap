@@ -1,11 +1,12 @@
-import { memo, useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, TextInput, Dimensions, Share } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, FlatList, TextInput, Dimensions, Share, KeyboardAvoidingView, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolate, Extrapolation } from 'react-native-reanimated';
 import { useLocalSearchParams, router, Link } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Share2 } from 'lucide-react-native';
 import { useTmdbMovie } from '@/hooks/useTmdbMovie';
-import { useLibrary } from '@/context/LibraryContext';
+import { useLibraryActions, useLibraryState } from '@/context/LibraryContext';
 import { posterUrl } from '@/lib/tmdb';
 import { MoviePoster } from '@/components/MoviePoster';
 import { StatusButton } from '@/components/StatusButton';
@@ -18,6 +19,10 @@ import type { TmdbCast, TmdbMovie, TmdbMovieDetail } from '@/lib/tmdb';
 
 const SCREEN_W = Dimensions.get('window').width;
 const HERO_H = 280;
+const HEAD_OVERLAP = 60;
+const HEAD_PADDING_TOP = 30;
+const SCROLL_TAIL = 40;
+const NOTE_DEBOUNCE_MS = 400;
 
 const STATUSES: { key: Status; label: string }[] = [
   { key: 'watch', label: 'À voir' },
@@ -40,13 +45,14 @@ export default function MovieDetailScreen() {
     );
   }
   if (!validId || error || !data) {
-    return <EmptyState title="Film introuvable" subtitle={error ?? 'ID invalide'} />;
+    return <EmptyState title="Film introuvable" subtitle={error ?? 'Film inaccessible pour le moment'} />;
   }
 
   return <DetailContent movie={data} movieId={validId} />;
 }
 
 function DetailContent({ movie, movieId }: { movie: TmdbMovieDetail; movieId: number }) {
+  const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler({
     onScroll: (e) => {
@@ -79,8 +85,14 @@ function DetailContent({ movie, movieId }: { movie: TmdbMovieDetail; movieId: nu
   );
   const renderSimilar = useCallback(({ item }: { item: TmdbMovie }) => <SimilarCard movie={item} />, []);
 
+  const topInset = Math.max(insets.top, spacing.md);
+
   return (
-    <View style={styles.root}>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
       <Animated.View style={[styles.hero, heroStyle]}>
         {derived.backdrop && (
           <Image source={{ uri: derived.backdrop }} style={styles.heroImg} contentFit="cover" />
@@ -88,15 +100,34 @@ function DetailContent({ movie, movieId }: { movie: TmdbMovieDetail; movieId: nu
         <View style={styles.heroOverlay} />
       </Animated.View>
 
-      <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10} accessibilityLabel="Retour" accessibilityRole="button">
+      <Pressable
+        onPress={() => router.back()}
+        style={[styles.back, { top: topInset }]}
+        hitSlop={12}
+        accessibilityLabel="Retour"
+        accessibilityRole="button"
+        accessibilityHint="Ferme la fiche du film"
+      >
         <ChevronLeft color={colors.ink} size={22} strokeWidth={1.8} />
       </Pressable>
-      <Pressable onPress={() => onShare(movie)} style={styles.shareBtn} hitSlop={10} accessibilityLabel="Partager" accessibilityRole="button">
+      <Pressable
+        onPress={() => onShare(movie)}
+        style={[styles.shareBtn, { top: topInset }]}
+        hitSlop={12}
+        accessibilityLabel="Partager le film"
+        accessibilityRole="button"
+      >
         <Share2 color={colors.ink} size={20} strokeWidth={1.8} />
       </Pressable>
 
-      <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={styles.scroll}>
-        <View style={{ height: HERO_H - 60 }} />
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
+        <View style={{ height: HERO_H - HEAD_OVERLAP }} />
 
         <View style={styles.headRow}>
           <MoviePoster path={movie.poster_path} size="w500" width={120} title={movie.title} />
@@ -151,9 +182,9 @@ function DetailContent({ movie, movieId }: { movie: TmdbMovieDetail; movieId: nu
           </>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: SCROLL_TAIL + insets.bottom }} />
       </Animated.ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -177,7 +208,8 @@ function movieKey(item: TmdbMovie) {
 }
 
 function StatusTogglesImpl({ movieId }: { movieId: number }) {
-  const { getStatus, setStatus } = useLibrary();
+  const { setStatus } = useLibraryActions();
+  const { getStatus } = useLibraryState();
   const current = getStatus(movieId);
 
   const handlers = useMemo(
@@ -207,7 +239,8 @@ function StatusTogglesImpl({ movieId }: { movieId: number }) {
 const StatusToggles = memo(StatusTogglesImpl);
 
 function RatingControlImpl({ movieId }: { movieId: number }) {
-  const { getRating, setRating } = useLibrary();
+  const { setRating } = useLibraryActions();
+  const { getRating } = useLibraryState();
   const value = getRating(movieId) ?? 0;
   const onChange = useCallback((r: number) => setRating(movieId, r), [movieId, setRating]);
   return (
@@ -219,12 +252,33 @@ function RatingControlImpl({ movieId }: { movieId: number }) {
 const RatingControl = memo(RatingControlImpl);
 
 function NotesEditorImpl({ movieId }: { movieId: number }) {
-  const { getNote, setNote } = useLibrary();
-  const [draft, setDraft] = useState(getNote(movieId) ?? '');
+  const { setNote } = useLibraryActions();
+  const { getNote } = useLibraryState();
+  const initial = getNote(movieId) ?? '';
+  const [draft, setDraft] = useState(initial);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const movieIdRef = useRef(movieId);
+  movieIdRef.current = movieId;
+  const setNoteRef = useRef(setNote);
+  setNoteRef.current = setNote;
+  const lastSavedRef = useRef(initial);
 
-  const onBlur = useCallback(() => {
-    setNote(movieId, draft);
-  }, [movieId, draft, setNote]);
+  useEffect(() => {
+    if (draft === lastSavedRef.current) return;
+    const t = setTimeout(() => {
+      setNoteRef.current(movieIdRef.current, draftRef.current);
+      lastSavedRef.current = draftRef.current;
+    }, NOTE_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [draft]);
+
+  useEffect(() => {
+    return () => {
+      if (draftRef.current === lastSavedRef.current) return;
+      setNoteRef.current(movieIdRef.current, draftRef.current);
+    };
+  }, []);
 
   return (
     <TextInput
@@ -233,10 +287,10 @@ function NotesEditorImpl({ movieId }: { movieId: number }) {
       placeholderTextColor={colors.ink3}
       value={draft}
       onChangeText={setDraft}
-      onBlur={onBlur}
       multiline
       textAlignVertical="top"
       maxLength={1000}
+      accessibilityLabel="Mes notes sur le film"
     />
   );
 }
@@ -252,7 +306,7 @@ function CastCardImpl({ cast, movieId }: { cast: TmdbCast; movieId: number }) {
       }}
       asChild
     >
-      <Pressable style={styles.castCard}>
+      <Pressable style={styles.castCard} accessibilityRole="button" accessibilityLabel={`${cast.name}, ${cast.character}`}>
         {profile ? (
           <Image source={{ uri: profile }} style={styles.castImg} contentFit="cover" transition={200} />
         ) : (
@@ -268,10 +322,10 @@ const CastCard = memo(CastCardImpl);
 
 function SimilarCardImpl({ movie }: { movie: TmdbMovie }) {
   const goTo = useCallback(() => {
-    router.replace({ pathname: '/movie/[id]', params: { id: String(movie.id) } });
+    router.push({ pathname: '/movie/[id]', params: { id: String(movie.id) } });
   }, [movie.id]);
   return (
-    <Pressable style={styles.simCard} onPress={goTo}>
+    <Pressable style={styles.simCard} onPress={goTo} accessibilityRole="button" accessibilityLabel={movie.title}>
       <MoviePoster path={movie.poster_path} size="w500" width={100} title={movie.title} />
       <Text style={styles.simTitle} numberOfLines={2}>{movie.title}</Text>
     </Pressable>
@@ -288,31 +342,29 @@ const styles = StyleSheet.create({
   heroOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(10,9,8,0.5)' },
   back: {
     position: 'absolute',
-    top: 50,
     left: spacing.md,
     zIndex: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(10,9,8,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   shareBtn: {
     position: 'absolute',
-    top: 50,
     right: spacing.md,
     zIndex: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(10,9,8,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   scroll: { paddingHorizontal: spacing.md },
   headRow: { flexDirection: 'row', gap: spacing.md, marginTop: -40 },
-  headCol: { flex: 1, gap: spacing.s, paddingTop: 30 },
+  headCol: { flex: 1, gap: spacing.s, paddingTop: HEAD_PADDING_TOP },
   title: { fontFamily: fonts.serifBold, fontSize: 26, color: colors.ink },
   meta: { fontFamily: fonts.sansMed, fontSize: 12, color: colors.ink2, letterSpacing: 0.3 },
   genres: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },

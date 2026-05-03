@@ -6,7 +6,7 @@ export const colors = {
   line2: '#3A3530',
   ink: '#F4EFE6',
   ink2: '#B8AFA1',
-  ink3: '#7C7468',
+  ink3: '#948B7E',
   ink4: '#4A453E',
   gold: '#D4A547',
   goldDeep: '#A8801D',
@@ -50,6 +50,9 @@ export const radius = {
   l: 22,
   xl: 28,
 } as const;
+
+export const TAB_BAR_HEIGHT = 64;
+export const TAB_BAR_BOTTOM_INSET = 16;
 
 export type Status = 'watch' | 'seen' | 'fav' | 'pass';
 

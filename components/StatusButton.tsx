@@ -14,6 +14,10 @@ function StatusButtonImpl({ status, label, active, onPress }: Props) {
   return (
     <Pressable
       onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: Boolean(active) }}
       style={({ pressed }) => [
         styles.btn,
         { borderColor: c, backgroundColor: active ? c : 'transparent', opacity: pressed ? 0.7 : 1 },
@@ -28,10 +32,12 @@ export const StatusButton = memo(StatusButtonImpl);
 
 const styles = StyleSheet.create({
   btn: {
-    paddingHorizontal: spacing.s,
-    paddingVertical: spacing.s,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.s + 2,
     borderWidth: 1,
     borderRadius: radius.m,
+    minHeight: 36,
+    justifyContent: 'center',
   },
-  label: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase' },
+  label: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase' },
 });

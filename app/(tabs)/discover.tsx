@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, Pressable, Modal } from 'react-native';
-const { absoluteFillObject } = StyleSheet;
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -15,13 +14,21 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { impactAsync, ImpactFeedbackStyle } from 'expo-haptics';
 import { Undo2 } from 'lucide-react-native';
 import { useTmdbDiscover } from '@/hooks/useTmdbDiscover';
-import { useLibrary } from '@/context/LibraryContext';
+import { useLibraryActions, useLibraryState } from '@/context/LibraryContext';
 import { MovieTicket } from '@/components/MovieTicket';
 import { EmptyState } from '@/components/EmptyState';
-import { colors, fonts, spacing, type Status } from '@/theme/tokens';
+import { TICKET_NUM_BASE } from '@/lib/constants';
+import {
+  colors,
+  fonts,
+  spacing,
+  TAB_BAR_HEIGHT,
+  TAB_BAR_BOTTOM_INSET,
+  type Status,
+} from '@/theme/tokens';
 import type { TmdbMovie } from '@/lib/tmdb';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -32,6 +39,9 @@ const SWIPE_EASING = Easing.bezier(0.32, 0.72, 0, 1);
 
 const MASTHEAD_H = 44;
 const TICKET_W = SCREEN_W - 32;
+const SWIPE_DURATION_MS = 280;
+const STACK_BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_INSET + spacing.s;
+const UNDO_BOTTOM = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_INSET + spacing.md;
 
 type Direction = 'left' | 'right' | 'up' | 'down';
 
@@ -60,10 +70,26 @@ type LastSwipe = { movie: TmdbMovie; previousStatus: Status | null };
 
 export default function DiscoverScreen() {
   const { queue, loading, error, next, refill, unshift } = useTmdbDiscover();
-  const { state, setStatus, remove, setPrefs, getStatus } = useLibrary();
+  const { setStatus, remove, setPrefs } = useLibraryActions();
+  const { state, getStatus } = useLibraryState();
   const [sessionCount, setSessionCount] = useState(0);
   const [lastSwipe, setLastSwipe] = useState<LastSwipe | null>(null);
   const showHint = !state.prefs.tutorialSeen;
+
+  const queueRef = useRef(queue);
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  const tutorialSeenRef = useRef(state.prefs.tutorialSeen);
+  useEffect(() => {
+    tutorialSeenRef.current = state.prefs.tutorialSeen;
+  }, [state.prefs.tutorialSeen]);
+
+  const getStatusRef = useRef(getStatus);
+  useEffect(() => {
+    getStatusRef.current = getStatus;
+  }, [getStatus]);
 
   const dismissHint = useCallback(() => {
     setPrefs({ tutorialSeen: true });
@@ -75,27 +101,29 @@ export default function DiscoverScreen() {
 
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
+  const topIdSv = useSharedValue<number>(0);
 
   useEffect(() => {
     tx.value = 0;
     ty.value = 0;
-  }, [top?.id, tx, ty]);
+    topIdSv.value = top?.id ?? 0;
+  }, [top?.id, tx, ty, topIdSv]);
 
   const triggerHaptic = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    impactAsync(ImpactFeedbackStyle.Medium).catch(() => {});
   }, []);
 
   const handleCommit = useCallback(
     (movieId: number, direction: Direction) => {
-      const prev = getStatus(movieId) ?? null;
-      const movie = queue.find((m) => m.id === movieId) ?? null;
+      const prev = getStatusRef.current(movieId) ?? null;
+      const movie = queueRef.current.find((m) => m.id === movieId) ?? null;
       setStatus(movieId, DIRECTION_TO_STATUS[direction]);
       setSessionCount((c) => c + 1);
-      if (!state.prefs.tutorialSeen) setPrefs({ tutorialSeen: true });
+      if (!tutorialSeenRef.current) setPrefs({ tutorialSeen: true });
       if (movie) setLastSwipe({ movie, previousStatus: prev });
       next();
     },
-    [setStatus, next, getStatus, queue, state.prefs.tutorialSeen, setPrefs],
+    [setStatus, next, setPrefs],
   );
 
   const onUndo = useCallback(() => {
@@ -114,44 +142,48 @@ export default function DiscoverScreen() {
     (movieId: number, direction: Direction) => {
       const targetX = direction === 'left' ? -SCREEN_W * 1.5 : direction === 'right' ? SCREEN_W * 1.5 : 0;
       const targetY = direction === 'up' ? -SCREEN_H : direction === 'down' ? SCREEN_H : 0;
-      tx.value = withTiming(targetX, { duration: 280, easing: SWIPE_EASING }, (finished) => {
+      tx.value = withTiming(targetX, { duration: SWIPE_DURATION_MS, easing: SWIPE_EASING }, (finished) => {
         'worklet';
         if (finished) {
           runOnJS(triggerHaptic)();
           runOnJS(handleCommit)(movieId, direction);
         }
       });
-      ty.value = withTiming(targetY, { duration: 280, easing: SWIPE_EASING });
+      ty.value = withTiming(targetY, { duration: SWIPE_DURATION_MS, easing: SWIPE_EASING });
     },
     [handleCommit, triggerHaptic, tx, ty],
   );
 
-  const pan = Gesture.Pan()
-    .onUpdate((e) => {
-      tx.value = e.translationX;
-      ty.value = e.translationY;
-    })
-    .onEnd((e) => {
-      const ax = Math.abs(e.translationX);
-      const ay = Math.abs(e.translationY);
-      const vx = Math.abs(e.velocityX);
-      const vy = Math.abs(e.velocityY);
-      const movieId = top?.id;
-      if (!movieId) return;
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .onUpdate((e) => {
+          tx.value = e.translationX;
+          ty.value = e.translationY;
+        })
+        .onEnd((e) => {
+          const ax = Math.abs(e.translationX);
+          const ay = Math.abs(e.translationY);
+          const vx = Math.abs(e.velocityX);
+          const vy = Math.abs(e.velocityY);
+          const movieId = topIdSv.value;
+          if (!movieId) return;
 
-      if (ax > THRESHOLD || vx > VELOCITY_THRESHOLD) {
-        const direction: Direction = e.translationX > 0 ? 'right' : 'left';
-        runOnJS(eject)(movieId, direction);
-        return;
-      }
-      if (ay > THRESHOLD || vy > VELOCITY_THRESHOLD) {
-        const direction: Direction = e.translationY > 0 ? 'down' : 'up';
-        runOnJS(eject)(movieId, direction);
-        return;
-      }
-      tx.value = withSpring(0, { damping: 18, stiffness: 200 });
-      ty.value = withSpring(0, { damping: 18, stiffness: 200 });
-    });
+          if (ax > THRESHOLD || vx > VELOCITY_THRESHOLD) {
+            const direction: Direction = e.translationX > 0 ? 'right' : 'left';
+            runOnJS(eject)(movieId, direction);
+            return;
+          }
+          if (ay > THRESHOLD || vy > VELOCITY_THRESHOLD) {
+            const direction: Direction = e.translationY > 0 ? 'down' : 'up';
+            runOnJS(eject)(movieId, direction);
+            return;
+          }
+          tx.value = withSpring(0, { damping: 18, stiffness: 200 });
+          ty.value = withSpring(0, { damping: 18, stiffness: 200 });
+        }),
+    [eject, topIdSv, tx, ty],
+  );
 
   const topCardStyle = useAnimatedStyle(() => ({
     transform: [
@@ -204,8 +236,8 @@ export default function DiscoverScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.root} edges={['top']}>
-        <EmptyState title="Erreur" subtitle={error} />
-        <Pressable style={styles.refill} onPress={refill}>
+        <EmptyState title="Service indisponible" subtitle="Réessaie dans un instant." />
+        <Pressable style={styles.refill} onPress={refill} accessibilityRole="button" accessibilityLabel="Recharger">
           <Text style={styles.refillText}>RECHARGER</Text>
         </Pressable>
       </SafeAreaView>
@@ -223,7 +255,7 @@ export default function DiscoverScreen() {
     return (
       <SafeAreaView style={styles.root} edges={['top']}>
         <EmptyState title="FIN" subtitle="Générique de fin - Une production Clap', Réalisée par toi." />
-        <Pressable style={styles.refill} onPress={refill}>
+        <Pressable style={styles.refill} onPress={refill} accessibilityRole="button" accessibilityLabel="Recharger la bobine">
           <Text style={styles.refillText}>RECHARGER LA BOBINE</Text>
         </Pressable>
       </SafeAreaView>
@@ -233,7 +265,7 @@ export default function DiscoverScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.masthead}>
-        <Text style={styles.mastheadSide} numberOfLines={1}>N° {String(127 + sessionCount).padStart(4, '0')}</Text>
+        <Text style={styles.mastheadSide} numberOfLines={1}>N° {String(TICKET_NUM_BASE + sessionCount).padStart(4, '0')}</Text>
         <Text style={styles.mastheadCenter}>Clap'</Text>
         <Text style={[styles.mastheadSide, styles.mastheadRight]} numberOfLines={1}>{sessionCount} TICKETS</Text>
       </View>
@@ -275,7 +307,7 @@ export default function DiscoverScreen() {
         <Pressable
           onPress={onUndo}
           style={styles.undoBtn}
-          hitSlop={8}
+          hitSlop={12}
           accessibilityLabel="Annuler le dernier swipe"
           accessibilityRole="button"
         >
@@ -291,7 +323,7 @@ export default function DiscoverScreen() {
 
 const AUTO_DISMISS_MS = 14000;
 
-function HintOverlay({ onDismiss, sampleMovie }: { onDismiss: () => void; sampleMovie: import('@/lib/tmdb').TmdbMovie }) {
+function HintOverlay({ onDismiss, sampleMovie }: { onDismiss: () => void; sampleMovie: TmdbMovie }) {
   useEffect(() => {
     const timer = setTimeout(onDismiss, AUTO_DISMISS_MS);
     return () => clearTimeout(timer);
@@ -299,7 +331,13 @@ function HintOverlay({ onDismiss, sampleMovie }: { onDismiss: () => void; sample
 
   return (
     <Modal transparent visible animationType="fade" onRequestClose={onDismiss} statusBarTranslucent>
-      <Pressable style={styles.hintBackdrop} onPress={onDismiss}>
+      <Pressable
+        style={styles.hintBackdrop}
+        onPress={onDismiss}
+        accessibilityRole="button"
+        accessibilityLabel="Fermer le tutoriel"
+        accessibilityViewIsModal
+      >
         <View style={styles.hintLayout}>
           <View style={styles.hintTopBlock} pointerEvents="none">
             <Text style={styles.hintEyebrow}>BIENVENUE</Text>
@@ -325,7 +363,7 @@ const DEMO_SEQUENCE = [
   { x: 0, y: 110, label: 'ARCHIVES', color: colors.seen },
 ] as const;
 
-function TutorialDemo({ movie }: { movie: import('@/lib/tmdb').TmdbMovie }) {
+function TutorialDemo({ movie }: { movie: TmdbMovie }) {
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
   const stampOpacity = useSharedValue(0);
@@ -384,7 +422,7 @@ function TutorialDemo({ movie }: { movie: import('@/lib/tmdb').TmdbMovie }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg, paddingBottom: 96 },
+  root: { flex: 1, backgroundColor: colors.bg, paddingBottom: STACK_BOTTOM_PAD },
   masthead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -392,11 +430,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     height: MASTHEAD_H,
   },
-  mastheadSide: { fontFamily: fonts.mono, fontSize: 9, color: colors.ink3, letterSpacing: 1, textTransform: 'uppercase', flex: 1 },
+  mastheadSide: { fontFamily: fonts.mono, fontSize: 10, color: colors.ink3, letterSpacing: 1, textTransform: 'uppercase', flex: 1 },
   mastheadRight: { textAlign: 'right' },
   mastheadCenter: { fontFamily: fonts.serifItalic, fontSize: 22, color: colors.gold, textAlign: 'center', flex: 1 },
   stack: { flex: 1, overflow: 'hidden' },
-  cardLayer: { ...absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  cardLayer: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   stampOverlay: {
     position: 'absolute',
     top: '40%',
@@ -422,7 +460,7 @@ const styles = StyleSheet.create({
   hintBody: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink2, textAlign: 'center', lineHeight: 22, marginTop: spacing.s, maxWidth: 300 },
   hintDemoBlock: { flex: 1, alignItems: 'center', justifyContent: 'center', marginVertical: spacing.lg },
   hintBottomBlock: { alignItems: 'center' },
-  hintDismiss: { fontFamily: fonts.mono, fontSize: 10, color: colors.ink3, letterSpacing: 2.4, textAlign: 'center', textTransform: 'uppercase' },
+  hintDismiss: { fontFamily: fonts.mono, fontSize: 11, color: colors.ink3, letterSpacing: 2.4, textAlign: 'center', textTransform: 'uppercase' },
   demoWrap: { alignItems: 'center', justifyContent: 'center' },
   demoStamp: { position: 'absolute', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }] },
   demoStampText: { fontFamily: fonts.serifBold, fontSize: 40, letterSpacing: 3, textShadowColor: '#000', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0 },
@@ -438,7 +476,7 @@ const styles = StyleSheet.create({
   refillText: { fontFamily: fonts.mono, color: colors.gold, fontSize: 11, letterSpacing: 1 },
   undoBtn: {
     position: 'absolute',
-    bottom: 100,
+    bottom: UNDO_BOTTOM,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',

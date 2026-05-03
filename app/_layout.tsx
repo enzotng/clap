@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, router, usePathname } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -7,21 +7,24 @@ import { useFonts, Fraunces_400Regular, Fraunces_500Medium, Fraunces_600SemiBold
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import * as SplashScreen from 'expo-splash-screen';
-import { LibraryProvider, useLibrary } from '@/context/LibraryContext';
+import { LibraryProvider, useLibraryState } from '@/context/LibraryContext';
 import { ClapSplash } from '@/components/ClapSplash';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function HydrationGate({ children }: { children: ReactNode }) {
-  const { state } = useLibrary();
+  const { state } = useLibraryState();
   const pathname = usePathname();
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
     if (!state.hydrated) return;
-    if (!state.prefs.onboarded && pathname !== '/onboarding') {
-      router.replace('/onboarding');
-    }
+    if (state.prefs.onboarded) return;
+    if (pathname === '/onboarding') return;
+    if (redirectedRef.current) return;
+    redirectedRef.current = true;
+    router.replace('/onboarding');
   }, [state.hydrated, state.prefs.onboarded, pathname]);
 
   if (!state.hydrated) {

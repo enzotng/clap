@@ -47,7 +47,12 @@ export function ClapSplash({ onDone }: { onDone?: () => void }) {
   }));
 
   return (
-    <Animated.View exiting={FadeOut.duration(280)} style={styles.root}>
+    <Animated.View
+      exiting={FadeOut.duration(280)}
+      style={styles.root}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <Animated.Text style={[styles.logo, logoStyle]}>Clap'</Animated.Text>
       <Animated.View style={clapStyle}>
         <Clapperboard size={48} color={colors.gold} strokeWidth={1.8} />

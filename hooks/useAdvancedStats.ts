@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { useLibrary } from '@/context/LibraryContext';
+import { useLibraryState } from '@/context/LibraryContext';
 import { useMoviesById } from '@/hooks/useMoviesById';
-import type { TmdbMovie, TmdbMovieDetail } from '@/lib/tmdb';
+import type { TmdbMovieDetail } from '@/lib/tmdb';
 
 export type AdvancedStats = {
   topGenres: { name: string; count: number }[];
@@ -10,7 +10,7 @@ export type AdvancedStats = {
 };
 
 export function useAdvancedStats(): { stats: AdvancedStats | null; loading: boolean } {
-  const { state } = useLibrary();
+  const { state } = useLibraryState();
 
   const qualifiedIds = useMemo(
     () =>
@@ -68,6 +68,3 @@ export function useAdvancedStats(): { stats: AdvancedStats | null; loading: bool
 
   return { stats, loading };
 }
-
-// Helper: TmdbMovie type guard not needed here since useMoviesById returns full TmdbMovieDetail
-export type { TmdbMovie };

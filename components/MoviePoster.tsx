@@ -17,8 +17,9 @@ function MoviePosterImpl({ path, size = 'w500', width = 120, title, style }: Pro
   const height = width * 1.5;
   const containerStyle = useMemo(() => [styles.container, { width, height }, style], [width, height, style]);
   const imageStyle = useMemo(() => ({ width, height }), [width, height]);
+  const a11yLabel = title ? `Affiche du film ${title}` : 'Affiche de film';
   return (
-    <View style={containerStyle}>
+    <View style={containerStyle} accessible accessibilityLabel={a11yLabel} accessibilityRole="image">
       {url ? (
         <Image source={{ uri: url }} style={imageStyle} contentFit="cover" transition={200} recyclingKey={url} />
       ) : (

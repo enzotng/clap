@@ -33,7 +33,7 @@ export default function MovieMoreScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <Header title="Inconnu" />
-      <EmptyState title="Sous-écran inconnu" subtitle={JSON.stringify(segs)} />
+      <EmptyState title="Sous-écran inconnu" subtitle="Cette section n'existe pas." />
     </SafeAreaView>
   );
 }
@@ -71,7 +71,7 @@ function PersonView({ personId }: { personId: number | undefined }) {
     return (
       <SafeAreaView style={styles.root} edges={['top']}>
         <Header title="Erreur" />
-        <EmptyState title="Personne introuvable" subtitle={error ?? 'ID invalide'} />
+        <EmptyState title="Personne introuvable" subtitle={error ?? 'Identifiant invalide'} />
       </SafeAreaView>
     );
   }
@@ -127,7 +127,7 @@ function SimilarView({ movieId }: { movieId: number | undefined }) {
     return (
       <SafeAreaView style={styles.root} edges={['top']}>
         <Header title="Erreur" />
-        <EmptyState title="Film introuvable" subtitle={error ?? 'ID invalide'} />
+        <EmptyState title="Film introuvable" subtitle={error ?? 'Identifiant invalide'} />
       </SafeAreaView>
     );
   }

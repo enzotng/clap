@@ -4,14 +4,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { Search as SearchIcon, X, SlidersHorizontal } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { useLibrary } from '@/context/LibraryContext';
+import { useLibraryActions, useLibraryState } from '@/context/LibraryContext';
 import { useTmdbSearch } from '@/hooks/useTmdbSearch';
 import { useTmdbPopular } from '@/hooks/useTmdbPopular';
 import { MovieRow } from '@/components/MovieRow';
 import { MoviePoster } from '@/components/MoviePoster';
 import { EmptyState } from '@/components/EmptyState';
 import { GENRES } from '@/lib/genres';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import {
+  colors,
+  fonts,
+  radius,
+  spacing,
+  TAB_BAR_HEIGHT,
+  TAB_BAR_BOTTOM_INSET,
+} from '@/theme/tokens';
 import type { TmdbMovie, DiscoverSort } from '@/lib/tmdb';
 
 const DECADES: { id: string; label: string; from: number; to: number }[] = [
@@ -34,8 +41,11 @@ const SORTS: { id: DiscoverSort; label: string }[] = [
   { id: 'primary_release_date.desc', label: 'Plus récents' },
 ];
 
+const SCROLL_BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_INSET + spacing.lg;
+
 export default function SearchScreen() {
-  const { state, setPrefs } = useLibrary();
+  const { state } = useLibraryState();
+  const { setPrefs } = useLibraryActions();
   const [query, setQuery] = useState('');
   const [genreId, setGenreId] = useState<number | null>(null);
   const [decadeId, setDecadeId] = useState<string | null>(null);
@@ -98,9 +108,9 @@ export default function SearchScreen() {
           onToggleFilters={() => {}}
         />
         {searchError ? (
-          <EmptyState title="Erreur" subtitle={searchError} />
+          <EmptyState title="Service indisponible" subtitle="Réessaie dans un instant." />
         ) : searchResults.length === 0 && !searchLoading ? (
-          <EmptyState title="Aucun résultat" subtitle={`Rien trouvé pour "${trimmedQuery}"`} />
+          <EmptyState title="Aucun résultat" subtitle={`Rien trouvé pour « ${trimmedQuery} »`} />
         ) : (
           <FlatList
             data={searchResults}
@@ -112,6 +122,10 @@ export default function SearchScreen() {
             onEndReachedThreshold={0.5}
             ListFooterComponent={hasMore && searchLoading ? <ActivityIndicator color={colors.gold} style={styles.spinner} /> : null}
             keyboardShouldPersistTaps="handled"
+            initialNumToRender={8}
+            maxToRenderPerBatch={6}
+            windowSize={9}
+            removeClippedSubviews
           />
         )}
       </SafeAreaView>
@@ -135,7 +149,14 @@ export default function SearchScreen() {
           <Text style={styles.recentLabel}>Récentes</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentChips}>
             {recentQueries.map((q) => (
-              <Pressable key={q} onPress={() => setQuery(q)} style={styles.recentChip}>
+              <Pressable
+                key={q}
+                onPress={() => setQuery(q)}
+                style={styles.recentChip}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel={`Rechercher ${q}`}
+              >
                 <Text style={styles.recentChipText}>{q}</Text>
               </Pressable>
             ))}
@@ -160,13 +181,13 @@ export default function SearchScreen() {
         <View style={styles.resultHeader}>
           <Text style={styles.sectionTitle}>{sectionTitle}</Text>
           {hasFilters && (
-            <Pressable onPress={onResetFilters} hitSlop={8}>
+            <Pressable onPress={onResetFilters} hitSlop={8} accessibilityRole="button" accessibilityLabel="Réinitialiser les filtres">
               <Text style={styles.resetLink}>Réinitialiser</Text>
             </Pressable>
           )}
         </View>
         {discoverError ? (
-          <Text style={styles.error}>{discoverError}</Text>
+          <EmptyState title="Service indisponible" subtitle="Réessaie dans un instant." />
         ) : discoverLoading ? (
           <ActivityIndicator color={colors.gold} style={styles.spinner} />
         ) : discoverResults.length === 0 ? (
@@ -227,11 +248,12 @@ function SearchBar({
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
+        accessibilityLabel="Rechercher un film"
       />
       {value.length > 0 ? (
         <Pressable
           onPress={() => onChange('')}
-          hitSlop={10}
+          hitSlop={12}
           style={styles.iconBtn}
           accessibilityLabel="Effacer la recherche"
           accessibilityRole="button"
@@ -241,10 +263,11 @@ function SearchBar({
       ) : (
         <Pressable
           onPress={onToggleFilters}
-          hitSlop={10}
+          hitSlop={12}
           style={styles.iconBtn}
           accessibilityLabel="Filtres"
           accessibilityRole="button"
+          accessibilityState={{ expanded: showFilters }}
         >
           <SlidersHorizontal
             size={18}
@@ -299,19 +322,25 @@ function FiltersDropdown({
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.sheetBackdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Fermer les filtres"
+        />
       </Animated.View>
       <Animated.View
         entering={SlideInDown.duration(280)}
         exiting={SlideOutDown.duration(200)}
         style={styles.sheet}
+        accessibilityViewIsModal
       >
         <SafeAreaView edges={['bottom']}>
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Filtres</Text>
             {hasFilters && (
-              <Pressable onPress={onReset} hitSlop={8}>
+              <Pressable onPress={onReset} hitSlop={8} accessibilityRole="button" accessibilityLabel="Réinitialiser">
                 <Text style={styles.resetLink}>Réinitialiser</Text>
               </Pressable>
             )}
@@ -367,7 +396,14 @@ function FiltersDropdown({
 
 function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+    <Pressable
+      onPress={onPress}
+      style={[styles.chip, active && styles.chipActive]}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+    >
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );
@@ -378,7 +414,12 @@ function PosterCard({ movie }: { movie: TmdbMovie }) {
     router.push({ pathname: '/movie/[id]', params: { id: String(movie.id) } });
   }, [movie.id]);
   return (
-    <Pressable onPress={onPress} style={styles.posterCard}>
+    <Pressable
+      onPress={onPress}
+      style={styles.posterCard}
+      accessibilityRole="button"
+      accessibilityLabel={movie.title}
+    >
       <MoviePoster path={movie.poster_path} size="w500" width={POSTER_W} title={movie.title} />
       <Text style={styles.posterTitle} numberOfLines={2}>{movie.title}</Text>
     </Pressable>
@@ -421,15 +462,15 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: colors.gold,
   },
-  list: { paddingHorizontal: spacing.md, paddingTop: 0, paddingBottom: 110 },
+  list: { paddingHorizontal: spacing.md, paddingTop: 0, paddingBottom: SCROLL_BOTTOM_PAD },
   separator: { height: spacing.s },
   spinner: { paddingVertical: spacing.lg },
-  idleScroll: { paddingBottom: 110 },
+  idleScroll: { paddingBottom: SCROLL_BOTTOM_PAD },
   filterGroup: { marginTop: spacing.m },
   filterLabel: {
     fontFamily: fonts.mono,
     color: colors.ink3,
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
     paddingHorizontal: spacing.md,
@@ -467,11 +508,10 @@ const styles = StyleSheet.create({
   posterGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, paddingHorizontal: spacing.md, justifyContent: 'space-between' },
   posterCard: { width: POSTER_W, gap: 6 },
   posterTitle: { fontFamily: fonts.sansMed, color: colors.ink2, fontSize: 11, textAlign: 'center' },
-  error: { fontFamily: fonts.sans, color: colors.pass, padding: spacing.md, textAlign: 'center' },
   recentRow: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, gap: spacing.xs },
   recentLabel: {
     fontFamily: fonts.mono,
-    fontSize: 9,
+    fontSize: 10,
     color: colors.ink3,
     letterSpacing: 1,
     textTransform: 'uppercase',

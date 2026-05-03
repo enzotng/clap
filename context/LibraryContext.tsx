@@ -56,23 +56,27 @@ function libraryReducer(state: LibraryState, action: Action): LibraryState {
   }
 }
 
-type LibraryContextValue = {
-  state: LibraryState;
+export type LibraryActions = {
   setStatus: (movieId: number, status: Status) => void;
   setRating: (movieId: number, rating: number) => void;
   setNote: (movieId: number, note: string) => void;
   remove: (movieId: number) => void;
   clear: () => void;
   setPrefs: (prefs: Partial<UserPrefs>) => void;
+};
+
+export type LibraryStateValue = {
+  state: LibraryState;
+  counts: Record<Status, number>;
+  averageRating: number;
   getStatus: (movieId: number) => Status | undefined;
   getRating: (movieId: number) => number | undefined;
   getNote: (movieId: number) => string | undefined;
   getByStatus: (status: Status) => number[];
-  counts: Record<Status, number>;
-  averageRating: number;
 };
 
-const LibraryContext = createContext<LibraryContextValue | null>(null);
+const ActionsContext = createContext<LibraryActions | null>(null);
+const StateContext = createContext<LibraryStateValue | null>(null);
 
 const EMPTY_IDS: Record<Status, number[]> = { watch: [], seen: [], fav: [], pass: [] };
 
@@ -95,12 +99,17 @@ export function LibraryProvider({ children }: PropsWithChildren) {
     };
   }, [state.byId, state.prefs, state.hydrated]);
 
-  const setStatus = useCallback((movieId: number, status: Status) => dispatch({ type: 'SET_STATUS', movieId, status }), []);
-  const setRating = useCallback((movieId: number, rating: number) => dispatch({ type: 'SET_RATING', movieId, rating }), []);
-  const setNote = useCallback((movieId: number, note: string) => dispatch({ type: 'SET_NOTE', movieId, note }), []);
-  const remove = useCallback((movieId: number) => dispatch({ type: 'REMOVE', movieId }), []);
-  const clear = useCallback(() => dispatch({ type: 'CLEAR' }), []);
-  const setPrefs = useCallback((prefs: Partial<UserPrefs>) => dispatch({ type: 'SET_PREFS', prefs }), []);
+  const actions = useMemo<LibraryActions>(
+    () => ({
+      setStatus: (movieId, status) => dispatch({ type: 'SET_STATUS', movieId, status }),
+      setRating: (movieId, rating) => dispatch({ type: 'SET_RATING', movieId, rating }),
+      setNote: (movieId, note) => dispatch({ type: 'SET_NOTE', movieId, note }),
+      remove: (movieId) => dispatch({ type: 'REMOVE', movieId }),
+      clear: () => dispatch({ type: 'CLEAR' }),
+      setPrefs: (prefs) => dispatch({ type: 'SET_PREFS', prefs }),
+    }),
+    [],
+  );
 
   const { idsByStatus, counts, averageRating } = useMemo(() => {
     const ids: Record<Status, number[]> = { watch: [], seen: [], fav: [], pass: [] };
@@ -129,19 +138,26 @@ export function LibraryProvider({ children }: PropsWithChildren) {
   const getNote = useCallback((movieId: number) => state.byId[movieId]?.note, [state.byId]);
   const getByStatus = useCallback((status: Status) => idsByStatus[status] ?? EMPTY_IDS[status], [idsByStatus]);
 
-  const value = useMemo<LibraryContextValue>(
-    () => ({
-      state, setStatus, setRating, setNote, remove, clear, setPrefs,
-      getStatus, getRating, getNote, getByStatus, counts, averageRating,
-    }),
-    [state, setStatus, setRating, setNote, remove, clear, setPrefs, getStatus, getRating, getNote, getByStatus, counts, averageRating],
+  const stateValue = useMemo<LibraryStateValue>(
+    () => ({ state, counts, averageRating, getStatus, getRating, getNote, getByStatus }),
+    [state, counts, averageRating, getStatus, getRating, getNote, getByStatus],
   );
 
-  return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
+  return (
+    <ActionsContext.Provider value={actions}>
+      <StateContext.Provider value={stateValue}>{children}</StateContext.Provider>
+    </ActionsContext.Provider>
+  );
 }
 
-export function useLibrary(): LibraryContextValue {
-  const ctx = useContext(LibraryContext);
-  if (!ctx) throw new Error('useLibrary must be used within LibraryProvider');
+export function useLibraryActions(): LibraryActions {
+  const ctx = useContext(ActionsContext);
+  if (!ctx) throw new Error('useLibraryActions must be used within LibraryProvider');
+  return ctx;
+}
+
+export function useLibraryState(): LibraryStateValue {
+  const ctx = useContext(StateContext);
+  if (!ctx) throw new Error('useLibraryState must be used within LibraryProvider');
   return ctx;
 }

@@ -3,17 +3,27 @@ import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
-import { useLibrary } from '@/context/LibraryContext';
+import { useLibraryState } from '@/context/LibraryContext';
 import { useMoviesById } from '@/hooks/useMoviesById';
 import { MoviePoster } from '@/components/MoviePoster';
-import { colors, fonts, spacing, STATUS_COLORS, STATUS_LABELS, type Status } from '@/theme/tokens';
+import {
+  colors,
+  fonts,
+  spacing,
+  STATUS_COLORS,
+  STATUS_LABELS,
+  TAB_BAR_HEIGHT,
+  TAB_BAR_BOTTOM_INSET,
+  type Status,
+} from '@/theme/tokens';
 
 const STATUSES: Status[] = ['watch', 'fav', 'seen', 'pass'];
 const PER_SECTION = 15;
 const POSTER_W = 100;
+const SCROLL_BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_INSET + spacing.lg;
 
 export default function LibraryIndex() {
-  const { counts, getByStatus } = useLibrary();
+  const { counts, getByStatus } = useLibraryState();
 
   const idsByStatus = useMemo(() => {
     const out: Record<Status, number[]> = { watch: [], seen: [], fav: [], pass: [] };
@@ -61,7 +71,12 @@ function Section({
 
   return (
     <View style={styles.section}>
-      <Pressable onPress={onSeeAll} style={styles.sectionHeader}>
+      <Pressable
+        onPress={onSeeAll}
+        style={styles.sectionHeader}
+        accessibilityRole="button"
+        accessibilityLabel={`Voir tous les films ${STATUS_LABELS[status]}`}
+      >
         <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[status] }]} />
         <Text style={[styles.sectionLabel, { color: STATUS_COLORS[status] }]}>{STATUS_LABELS[status]}</Text>
         <Text style={styles.sectionCount}>{count}</Text>
@@ -80,6 +95,8 @@ function Section({
                 key={id}
                 onPress={() => router.push({ pathname: '/movie/[id]', params: { id: String(id) } })}
                 style={styles.posterCard}
+                accessibilityRole="button"
+                accessibilityLabel={m?.title ?? 'Film en chargement'}
               >
                 <MoviePoster path={m?.poster_path ?? null} size="w500" width={POSTER_W} title={m?.title ?? '...'} />
                 <Text style={styles.posterTitle} numberOfLines={2}>{m?.title ?? '…'}</Text>
@@ -94,7 +111,7 @@ function Section({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  scroll: { paddingBottom: 110 },
+  scroll: { paddingBottom: SCROLL_BOTTOM_PAD },
   h1: {
     fontFamily: fonts.serifBold,
     fontSize: 32,

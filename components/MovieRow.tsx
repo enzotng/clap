@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { MoviePoster } from './MoviePoster';
 import { StatusBadge } from './StatusBadge';
-import { useLibrary } from '@/context/LibraryContext';
-import { colors, fonts, spacing, radius } from '@/theme/tokens';
+import { useLibraryState } from '@/context/LibraryContext';
+import { colors, fonts, spacing, radius, STATUS_LABELS } from '@/theme/tokens';
 import type { TmdbMovie } from '@/lib/tmdb';
 
 function MovieRowImpl({ movie }: { movie: TmdbMovie }) {
-  const { getStatus } = useLibrary();
+  const { getStatus } = useLibraryState();
   const status = getStatus(movie.id);
 
   const onPress = useCallback(() => {
@@ -17,9 +17,10 @@ function MovieRowImpl({ movie }: { movie: TmdbMovie }) {
 
   const year = movie.release_date ? movie.release_date.slice(0, 4) : '';
   const meta = [year, movie.vote_average ? `★ ${(movie.vote_average ?? 0).toFixed(1)}` : null].filter(Boolean).join(' · ');
+  const a11yLabel = status ? `${movie.title}, ${STATUS_LABELS[status]}` : movie.title;
 
   return (
-    <Pressable onPress={onPress} style={styles.row}>
+    <Pressable onPress={onPress} style={styles.row} accessibilityRole="button" accessibilityLabel={a11yLabel}>
       <MoviePoster path={movie.poster_path} size="w185" width={64} title={movie.title} />
       <View style={styles.col}>
         <Text style={styles.title} numberOfLines={2}>{movie.title}</Text>

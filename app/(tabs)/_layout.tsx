@@ -4,7 +4,7 @@ import Animated, { LinearTransition, FadeIn, FadeOut, Easing } from 'react-nativ
 import { BlurView } from 'expo-blur';
 import { Clapperboard, Search, Library, User } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_INSET } from '@/theme/tokens';
 
 type TabBarRoute = { key: string; name: string; params?: object };
 type TabBarProps = {
@@ -14,8 +14,6 @@ type TabBarProps = {
     navigate: (name: string, params?: object) => void;
   };
 };
-
-const TAB_HEIGHT = 64;
 
 const META: Record<string, { label: string; Icon: LucideIcon }> = {
   discover: { label: 'Découvrir', Icon: Clapperboard },
@@ -37,7 +35,7 @@ export default function TabsLayout() {
 
 function FloatingTabBar({ state, navigation }: TabBarProps) {
   return (
-    <View style={styles.tabBar}>
+    <View style={styles.tabBar} accessibilityRole="tablist">
       {Platform.OS === 'ios' ? (
         <BlurView intensity={70} tint="dark" style={styles.bg} />
       ) : (
@@ -60,8 +58,15 @@ function FloatingTabBar({ state, navigation }: TabBarProps) {
               layout={LinearTransition.duration(320).easing(Easing.bezier(0.16, 1, 0.3, 1))}
               style={focused ? styles.itemActive : styles.itemInactive}
             >
-              <Pressable onPress={onPress} style={styles.itemInner} hitSlop={8}>
-                <meta.Icon size={20} color={focused ? colors.gold : colors.ink3} strokeWidth={1.8} />
+              <Pressable
+                onPress={onPress}
+                style={styles.itemInner}
+                hitSlop={6}
+                accessibilityRole="tab"
+                accessibilityLabel={meta.label}
+                accessibilityState={{ selected: focused }}
+              >
+                <meta.Icon size={22} color={focused ? colors.gold : colors.ink3} strokeWidth={1.8} />
                 {focused && (
                   <Animated.Text
                     entering={FadeIn.duration(180).delay(80)}
@@ -84,11 +89,11 @@ function FloatingTabBar({ state, navigation }: TabBarProps) {
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    bottom: 16,
+    bottom: TAB_BAR_BOTTOM_INSET,
     left: 16,
     right: 16,
-    height: TAB_HEIGHT,
-    borderRadius: TAB_HEIGHT / 2,
+    height: TAB_BAR_HEIGHT,
+    borderRadius: TAB_BAR_HEIGHT / 2,
     overflow: 'hidden',
     elevation: 12,
     shadowColor: '#000',
@@ -97,9 +102,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
   },
   bg: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(18,17,16,0.55)' },
-  row: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 4 },
-  itemInactive: { width: 44, height: 44 },
-  itemActive: { flex: 1, height: 44, backgroundColor: 'rgba(212,165,71,0.16)', borderRadius: 22 },
+  row: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6 },
+  itemInactive: { width: 48, height: 48 },
+  itemActive: { flex: 1, height: 48, backgroundColor: 'rgba(212,165,71,0.16)', borderRadius: 24 },
   itemInner: {
     flex: 1,
     flexDirection: 'row',

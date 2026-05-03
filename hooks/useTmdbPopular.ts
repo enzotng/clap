@@ -41,6 +41,7 @@ export function useTmdbPopular(filters: PopularFilters = {}) {
         setState({ results: [], loading: false, error: e instanceof Error ? e.message : String(e) });
       });
     return () => ctl.abort();
+    // filterKey is the stable serialization of `filters` - depending on the object reference would refetch on every parent render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey]);
 

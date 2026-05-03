@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, TextInput, Pressable, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TextInput, Pressable, StyleSheet, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, {
@@ -10,14 +10,15 @@ import Animated, {
   withTiming,
   withSpring,
 } from 'react-native-reanimated';
-import { useLibrary } from '@/context/LibraryContext';
+import { ChevronLeft } from 'lucide-react-native';
+import { useLibraryActions } from '@/context/LibraryContext';
 import { GENRES, MAX_PREFERRED_GENRES } from '@/lib/genres';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function OnboardingScreen() {
-  const { setPrefs } = useLibrary();
+  const { setPrefs } = useLibraryActions();
   const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(0);
   const [name, setName] = useState('');
@@ -46,25 +47,46 @@ export default function OnboardingScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-      <View style={styles.dots}>
-        {[0, 1, 2].map((i) => (
-          <View key={i} style={[styles.dot, i === page && styles.dotActive]} />
-        ))}
-      </View>
-
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled={false}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.root} edges={['top']}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <PageWelcome onNext={() => goPage(1)} width={SCREEN_W} />
-        <PageName name={name} setName={setName} onNext={() => goPage(2)} width={SCREEN_W} active={page === 1} />
-        <PageGenres genres={genres} toggleGenre={toggleGenre} onFinish={finish} width={SCREEN_W} />
-      </ScrollView>
+        <View style={styles.header}>
+          {page > 0 ? (
+            <Pressable
+              onPress={() => goPage(page - 1)}
+              style={styles.backBtn}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Étape précédente"
+            >
+              <ChevronLeft color={colors.ink2} size={22} strokeWidth={1.8} />
+            </Pressable>
+          ) : (
+            <View style={styles.backBtn} />
+          )}
+          <View style={styles.dots}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={[styles.dot, i === page && styles.dotActive]} />
+            ))}
+          </View>
+          <View style={styles.backBtn} />
+        </View>
+
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <PageWelcome onNext={() => goPage(1)} width={SCREEN_W} />
+          <PageName name={name} setName={setName} onNext={() => goPage(2)} width={SCREEN_W} active={page === 1} />
+          <PageGenres genres={genres} toggleGenre={toggleGenre} onFinish={finish} width={SCREEN_W} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -77,7 +99,12 @@ function PageWelcome({ onNext, width }: { onNext: () => void; width: number }) {
       <Text style={styles.subtitle}>
         Une carte = un film. Quatre gestes pour qualifier ce qui te tente, ce que tu as vu, ce que tu adores ou ce qui ne t'inspire pas.
       </Text>
-      <Pressable style={styles.cta} onPress={onNext}>
+      <Pressable
+        style={styles.cta}
+        onPress={onNext}
+        accessibilityRole="button"
+        accessibilityLabel="Commencer l'onboarding"
+      >
         <Text style={styles.ctaText}>Commencer</Text>
       </Pressable>
     </View>
@@ -122,11 +149,16 @@ function PageName({
         maxLength={32}
         returnKeyType="next"
         onSubmitEditing={() => canProceed && onNext()}
+        accessibilityLabel="Ton pseudo"
+        textContentType="nickname"
       />
       <Pressable
         style={[styles.cta, !canProceed && styles.ctaDisabled]}
         onPress={canProceed ? onNext : undefined}
         disabled={!canProceed}
+        accessibilityRole="button"
+        accessibilityLabel="Étape suivante"
+        accessibilityState={{ disabled: !canProceed }}
       >
         <Text style={styles.ctaText}>Suivant</Text>
       </Pressable>
@@ -161,7 +193,12 @@ function PageGenres({
           />
         ))}
       </View>
-      <Pressable style={styles.cta} onPress={onFinish}>
+      <Pressable
+        style={styles.cta}
+        onPress={onFinish}
+        accessibilityRole="button"
+        accessibilityLabel="Terminer et entrer dans l'app"
+      >
         <Text style={styles.ctaText}>C'est parti</Text>
       </Pressable>
     </View>
@@ -192,7 +229,14 @@ function GenreToggle({
   };
 
   return (
-    <Pressable onPress={handlePress} disabled={disabled}>
+    <Pressable
+      onPress={handlePress}
+      disabled={disabled}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected, disabled }}
+    >
       <Animated.View
         style={[
           styles.chip,
@@ -209,7 +253,16 @@ function GenreToggle({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: spacing.s, paddingVertical: spacing.md },
+  flex: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.s,
+  },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  dots: { flexDirection: 'row', gap: spacing.s },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.line2 },
   dotActive: { width: 28, backgroundColor: colors.gold },
   page: { padding: spacing.xl, alignItems: 'center', justifyContent: 'center', gap: spacing.md, flex: 1 },

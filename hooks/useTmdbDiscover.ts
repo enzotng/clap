@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { tmdbApi, type TmdbMovie } from '@/lib/tmdb';
-import { useLibrary } from '@/context/LibraryContext';
+import { useLibraryState } from '@/context/LibraryContext';
 
 type State = {
   queue: TmdbMovie[];
@@ -15,9 +15,9 @@ export function useTmdbDiscover() {
   const pageRef = useRef(0);
   const seenRef = useRef<Set<number>>(new Set());
   const loadingRef = useRef(false);
-  const { state: lib } = useLibrary();
+  const totalPagesRef = useRef<number | null>(null);
+  const { state: lib } = useLibraryState();
 
-  // Refs to avoid re-fetching on every dispatch in LibraryContext
   const libRef = useRef(lib.byId);
   useEffect(() => {
     libRef.current = lib.byId;
@@ -27,9 +27,7 @@ export function useTmdbDiscover() {
     genresRef.current = lib.prefs.preferredGenres;
   }, [lib.prefs.preferredGenres]);
 
-  const totalPagesRef = useRef<number | null>(null);
-
-  const refill = useCallback(async () => {
+  const loadNext = useCallback(async () => {
     if (loadingRef.current) return;
     if (totalPagesRef.current !== null && pageRef.current >= totalPagesRef.current) return;
     loadingRef.current = true;
@@ -48,17 +46,25 @@ export function useTmdbDiscover() {
       });
       setState((s) => ({ queue: [...s.queue, ...fresh], loading: false, error: null }));
     } catch (e) {
-      setState((s) => ({ ...s, loading: false, error: e instanceof Error ? e.message : String(e) }));
+      setState((s) => ({ ...s, loading: false, error: e instanceof Error ? e.message : 'Service indisponible' }));
     } finally {
       loadingRef.current = false;
     }
   }, []);
 
+  const refill = useCallback(() => {
+    pageRef.current = 0;
+    totalPagesRef.current = null;
+    seenRef.current = new Set();
+    setState({ queue: [], loading: false, error: null });
+    void loadNext();
+  }, [loadNext]);
+
   useEffect(() => {
     if (state.queue.length < MIN_QUEUE && !loadingRef.current) {
-      refill();
+      void loadNext();
     }
-  }, [state.queue.length, refill]);
+  }, [state.queue.length, loadNext]);
 
   const next = useCallback(() => {
     setState((s) => ({ ...s, queue: s.queue.slice(1) }));

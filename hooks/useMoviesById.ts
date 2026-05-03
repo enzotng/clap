@@ -24,14 +24,15 @@ export function useMoviesById(ids: number[]): Record<number, TmdbMovie | undefin
   const [moviesById, setMoviesById] = useState<Record<number, TmdbMovie>>({});
   const idsKey = ids.join(',');
   const moviesByIdRef = useRef(moviesById);
+
   useEffect(() => {
     moviesByIdRef.current = moviesById;
   }, [moviesById]);
 
   useEffect(() => {
+    let cancelled = false;
     const missing = ids.filter((id) => !moviesByIdRef.current[id]);
     if (missing.length === 0) return;
-    let cancelled = false;
     fetchInBatches(missing).then((results) => {
       if (cancelled) return;
       setMoviesById((prev) => {
@@ -45,6 +46,7 @@ export function useMoviesById(ids: number[]): Record<number, TmdbMovie | undefin
     return () => {
       cancelled = true;
     };
+    // idsKey collapses identity changes when contents are identical
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey]);
 
