@@ -16,11 +16,13 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { Undo2 } from 'lucide-react-native';
 import { useTmdbDiscover } from '@/hooks/useTmdbDiscover';
 import { useLibrary } from '@/context/LibraryContext';
 import { MovieTicket } from '@/components/MovieTicket';
 import { EmptyState } from '@/components/EmptyState';
 import { colors, fonts, spacing, type Status } from '@/theme/tokens';
+import type { TmdbMovie } from '@/lib/tmdb';
 
 const SCREEN_W = Dimensions.get('window').width;
 const SCREEN_H = Dimensions.get('window').height;
@@ -54,10 +56,13 @@ const STAMP_COLOR: Record<Direction, string> = {
   down: colors.seen,
 };
 
+type LastSwipe = { movie: TmdbMovie; previousStatus: Status | null };
+
 export default function DiscoverScreen() {
-  const { queue, loading, error, next, refill } = useTmdbDiscover();
-  const { state, setStatus, setPrefs } = useLibrary();
+  const { queue, loading, error, next, refill, unshift } = useTmdbDiscover();
+  const { state, setStatus, remove, setPrefs, getStatus } = useLibrary();
   const [sessionCount, setSessionCount] = useState(0);
+  const [lastSwipe, setLastSwipe] = useState<LastSwipe | null>(null);
   const showHint = !state.prefs.tutorialSeen;
 
   const dismissHint = useCallback(() => {
@@ -82,13 +87,28 @@ export default function DiscoverScreen() {
 
   const handleCommit = useCallback(
     (movieId: number, direction: Direction) => {
+      const prev = getStatus(movieId) ?? null;
+      const movie = queue.find((m) => m.id === movieId) ?? null;
       setStatus(movieId, DIRECTION_TO_STATUS[direction]);
       setSessionCount((c) => c + 1);
       if (!state.prefs.tutorialSeen) setPrefs({ tutorialSeen: true });
+      if (movie) setLastSwipe({ movie, previousStatus: prev });
       next();
     },
-    [setStatus, next, state.prefs.tutorialSeen, setPrefs],
+    [setStatus, next, getStatus, queue, state.prefs.tutorialSeen, setPrefs],
   );
+
+  const onUndo = useCallback(() => {
+    if (!lastSwipe) return;
+    if (lastSwipe.previousStatus) {
+      setStatus(lastSwipe.movie.id, lastSwipe.previousStatus);
+    } else {
+      remove(lastSwipe.movie.id);
+    }
+    unshift(lastSwipe.movie);
+    setSessionCount((c) => Math.max(0, c - 1));
+    setLastSwipe(null);
+  }, [lastSwipe, setStatus, remove, unshift]);
 
   const eject = useCallback(
     (movieId: number, direction: Direction) => {
@@ -251,6 +271,13 @@ export default function DiscoverScreen() {
         </Animated.View>
       </View>
 
+      {lastSwipe && (
+        <Pressable onPress={onUndo} style={styles.undoBtn} hitSlop={8}>
+          <Undo2 size={16} color={colors.gold} strokeWidth={1.8} />
+          <Text style={styles.undoText}>Annuler</Text>
+        </Pressable>
+      )}
+
       {showHint && top && <HintOverlay onDismiss={dismissHint} sampleMovie={top} />}
     </SafeAreaView>
   );
@@ -403,4 +430,19 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   refillText: { fontFamily: fonts.mono, color: colors.gold, fontSize: 11, letterSpacing: 1 },
+  undoBtn: {
+    position: 'absolute',
+    bottom: 100,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.s,
+    borderRadius: 999,
+    backgroundColor: colors.bg2,
+    borderWidth: 1,
+    borderColor: colors.line2,
+  },
+  undoText: { fontFamily: fonts.mono, color: colors.gold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
 });

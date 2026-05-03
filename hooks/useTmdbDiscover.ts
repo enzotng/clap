@@ -64,5 +64,10 @@ export function useTmdbDiscover() {
     setState((s) => ({ ...s, queue: s.queue.slice(1) }));
   }, []);
 
-  return { queue: state.queue, loading: state.loading, error: state.error, next, refill };
+  const unshift = useCallback((movie: TmdbMovie) => {
+    setState((s) => ({ ...s, queue: [movie, ...s.queue] }));
+    seenRef.current.delete(movie.id);
+  }, []);
+
+  return { queue: state.queue, loading: state.loading, error: state.error, next, refill, unshift };
 }
