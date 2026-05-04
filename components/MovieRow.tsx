@@ -3,13 +3,12 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { MoviePoster } from './MoviePoster';
 import { StatusBadge } from './StatusBadge';
-import { useLibraryState } from '@/context/LibraryContext';
+import { useMovieStatus } from '@/context/LibraryContext';
 import { colors, fonts, spacing, radius, STATUS_LABELS } from '@/theme/tokens';
 import type { TmdbMovie } from '@/lib/tmdb';
 
 function MovieRowImpl({ movie }: { movie: TmdbMovie }) {
-  const { getStatus } = useLibraryState();
-  const status = getStatus(movie.id);
+  const status = useMovieStatus(movie.id);
 
   const onPress = useCallback(() => {
     router.push({ pathname: '/movie/[id]', params: { id: String(movie.id) } });

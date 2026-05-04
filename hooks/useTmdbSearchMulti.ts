@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { tmdbApi, type TmdbMovie } from '@/lib/tmdb';
+import { tmdbApi, type TmdbMultiResult } from '@/lib/tmdb';
 
 type State = {
-  results: TmdbMovie[];
+  results: TmdbMultiResult[];
   page: number;
   totalPages: number;
   loading: boolean;
@@ -11,7 +11,11 @@ type State = {
 
 const DEBOUNCE_MS = 300;
 
-export function useTmdbSearch(query: string) {
+function isRelevant(item: TmdbMultiResult): boolean {
+  return item.media_type === 'movie' || item.media_type === 'person';
+}
+
+export function useTmdbSearchMulti(query: string) {
   const [state, setState] = useState<State>({ results: [], page: 0, totalPages: 0, loading: false, error: null });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -24,10 +28,11 @@ export function useTmdbSearch(query: string) {
     const ctl = abortRef.current;
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      const r = await tmdbApi.search(q, pageNum, ctl.signal);
+      const r = await tmdbApi.searchMulti(q, pageNum, ctl.signal);
       if (queryRef.current !== q) return;
+      const filtered = r.results.filter(isRelevant);
       setState((s) => ({
-        results: pageNum === 1 ? r.results : [...s.results, ...r.results],
+        results: pageNum === 1 ? filtered : [...s.results, ...filtered],
         page: r.page,
         totalPages: r.total_pages,
         loading: false,
@@ -35,7 +40,7 @@ export function useTmdbSearch(query: string) {
       }));
     } catch (e) {
       if (ctl.signal.aborted) return;
-      setState((s) => ({ ...s, loading: false, error: e instanceof Error ? e.message : String(e) }));
+      setState((s) => ({ ...s, loading: false, error: e instanceof Error ? e.message : 'Service indisponible' }));
     }
   }, []);
 

@@ -20,7 +20,7 @@ export function useAdvancedStats(): { stats: AdvancedStats | null; loading: bool
     [state.byId],
   );
 
-  const moviesById = useMoviesById(qualifiedIds);
+  const { moviesById } = useMoviesById(qualifiedIds);
   const fetchedCount = qualifiedIds.filter((id) => moviesById[id]).length;
   const loading = qualifiedIds.length > 0 && fetchedCount < qualifiedIds.length;
 
