@@ -6,6 +6,7 @@ import { ChevronRight } from 'lucide-react-native';
 import { useLibraryState } from '@/context/LibraryContext';
 import { useMoviesById } from '@/hooks/useMoviesById';
 import { MoviePoster } from '@/components/MoviePoster';
+import { MoviePosterSkeleton } from '@/components/MoviePosterSkeleton';
 import {
   colors,
   fonts,
@@ -34,7 +35,7 @@ export default function LibraryIndex() {
   }, [getByStatus]);
 
   const allIds = useMemo(() => STATUSES.flatMap((s) => idsByStatus[s]), [idsByStatus]);
-  const movies = useMoviesById(allIds);
+  const { moviesById: movies } = useMoviesById(allIds);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -90,16 +91,23 @@ function Section({
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
           {ids.map((id) => {
             const m = movies[id];
+            if (!m) {
+              return (
+                <View key={id} style={styles.posterCard}>
+                  <MoviePosterSkeleton width={POSTER_W} />
+                </View>
+              );
+            }
             return (
               <Pressable
                 key={id}
                 onPress={() => router.push({ pathname: '/movie/[id]', params: { id: String(id) } })}
                 style={styles.posterCard}
                 accessibilityRole="button"
-                accessibilityLabel={m?.title ?? 'Film en chargement'}
+                accessibilityLabel={m.title}
               >
-                <MoviePoster path={m?.poster_path ?? null} size="w500" width={POSTER_W} title={m?.title ?? '...'} />
-                <Text style={styles.posterTitle} numberOfLines={2}>{m?.title ?? '…'}</Text>
+                <MoviePoster path={m.poster_path} size="w500" width={POSTER_W} title={m.title} />
+                <Text style={styles.posterTitle} numberOfLines={2}>{m.title}</Text>
               </Pressable>
             );
           })}

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { tmdbApi, type TmdbMovie } from '@/lib/tmdb';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { tmdbApi, invalidateMovie, type TmdbMovie } from '@/lib/tmdb';
 
 const CONCURRENCY = 6;
 
@@ -20,10 +20,17 @@ async function fetchInBatches(ids: number[]): Promise<Array<{ id: number; m: Tmd
   return out;
 }
 
-export function useMoviesById(ids: number[]): Record<number, TmdbMovie | undefined> {
+export type UseMoviesByIdResult = {
+  moviesById: Record<number, TmdbMovie | undefined>;
+  refresh: () => Promise<void>;
+};
+
+export function useMoviesById(ids: number[]): UseMoviesByIdResult {
   const [moviesById, setMoviesById] = useState<Record<number, TmdbMovie>>({});
   const idsKey = ids.join(',');
   const moviesByIdRef = useRef(moviesById);
+  const idsRef = useRef(ids);
+  idsRef.current = ids;
 
   useEffect(() => {
     moviesByIdRef.current = moviesById;
@@ -50,5 +57,18 @@ export function useMoviesById(ids: number[]): Record<number, TmdbMovie | undefin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey]);
 
-  return moviesById;
+  const refresh = useCallback(async () => {
+    const current = idsRef.current;
+    for (const id of current) invalidateMovie(id);
+    const results = await fetchInBatches(current);
+    setMoviesById((prev) => {
+      const next = { ...prev };
+      for (const r of results) {
+        if (r) next[r.id] = r.m;
+      }
+      return next;
+    });
+  }, []);
+
+  return { moviesById, refresh };
 }

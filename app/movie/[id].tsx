@@ -6,7 +6,7 @@ import { useLocalSearchParams, router, Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Share2 } from 'lucide-react-native';
 import { useTmdbMovie } from '@/hooks/useTmdbMovie';
-import { useLibraryActions, useLibraryState } from '@/context/LibraryContext';
+import { useLibraryActions, useMovieStatus, useMovieRating, useMovieNote } from '@/context/LibraryContext';
 import { posterUrl } from '@/lib/tmdb';
 import { MoviePoster } from '@/components/MoviePoster';
 import { StatusButton } from '@/components/StatusButton';
@@ -14,6 +14,7 @@ import { GenreChip } from '@/components/GenreChip';
 import { RatingStars } from '@/components/RatingStars';
 import { SectionHeader } from '@/components/SectionHeader';
 import { EmptyState } from '@/components/EmptyState';
+import { MovieDetailSkeleton } from '@/components/MovieDetailSkeleton';
 import { colors, fonts, radius, spacing, type Status } from '@/theme/tokens';
 import type { TmdbCast, TmdbMovie, TmdbMovieDetail } from '@/lib/tmdb';
 
@@ -38,11 +39,7 @@ export default function MovieDetailScreen() {
   const { data, loading, error } = useTmdbMovie(validId);
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.loading}>Chargement…</Text>
-      </View>
-    );
+    return <MovieDetailSkeleton />;
   }
   if (!validId || error || !data) {
     return <EmptyState title="Film introuvable" subtitle={error ?? 'Film inaccessible pour le moment'} />;
@@ -80,8 +77,8 @@ function DetailContent({ movie, movieId }: { movie: TmdbMovieDetail; movieId: nu
   }, [movie]);
 
   const renderCast = useCallback(
-    ({ item }: { item: TmdbCast }) => <CastCard cast={item} movieId={movieId} />,
-    [movieId],
+    ({ item }: { item: TmdbCast }) => <CastCard cast={item} />,
+    [],
   );
   const renderSimilar = useCallback(({ item }: { item: TmdbMovie }) => <SimilarCard movie={item} />, []);
 
@@ -209,8 +206,7 @@ function movieKey(item: TmdbMovie) {
 
 function StatusTogglesImpl({ movieId }: { movieId: number }) {
   const { setStatus } = useLibraryActions();
-  const { getStatus } = useLibraryState();
-  const current = getStatus(movieId);
+  const current = useMovieStatus(movieId);
 
   const handlers = useMemo(
     () => ({
@@ -240,8 +236,7 @@ const StatusToggles = memo(StatusTogglesImpl);
 
 function RatingControlImpl({ movieId }: { movieId: number }) {
   const { setRating } = useLibraryActions();
-  const { getRating } = useLibraryState();
-  const value = getRating(movieId) ?? 0;
+  const value = useMovieRating(movieId) ?? 0;
   const onChange = useCallback((r: number) => setRating(movieId, r), [movieId, setRating]);
   return (
     <View style={styles.starsRow}>
@@ -253,8 +248,7 @@ const RatingControl = memo(RatingControlImpl);
 
 function NotesEditorImpl({ movieId }: { movieId: number }) {
   const { setNote } = useLibraryActions();
-  const { getNote } = useLibraryState();
-  const initial = getNote(movieId) ?? '';
+  const initial = useMovieNote(movieId) ?? '';
   const [draft, setDraft] = useState(initial);
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -296,14 +290,11 @@ function NotesEditorImpl({ movieId }: { movieId: number }) {
 }
 const NotesEditor = memo(NotesEditorImpl);
 
-function CastCardImpl({ cast, movieId }: { cast: TmdbCast; movieId: number }) {
+function CastCardImpl({ cast }: { cast: TmdbCast }) {
   const profile = posterUrl(cast.profile_path, 'w185');
   return (
     <Link
-      href={{
-        pathname: '/movie/[id]/more/[...segments]',
-        params: { id: String(movieId), segments: ['cast', String(cast.id)] },
-      }}
+      href={{ pathname: '/person/[id]', params: { id: String(cast.id) } }}
       asChild
     >
       <Pressable style={styles.castCard} accessibilityRole="button" accessibilityLabel={`${cast.name}, ${cast.character}`}>

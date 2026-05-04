@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -8,6 +8,7 @@ import { useLibraryState } from '@/context/LibraryContext';
 import { useMoviesById } from '@/hooks/useMoviesById';
 import type { TmdbMovie } from '@/lib/tmdb';
 import { MovieRow } from '@/components/MovieRow';
+import { MovieRowSkeleton } from '@/components/MovieRowSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import {
   colors,
@@ -43,8 +44,18 @@ export default function LibraryStatusScreen() {
 
   const { getByStatus, getRating } = useLibraryState();
   const ids = getByStatus(validStatus);
-  const moviesById = useMoviesById(ids);
+  const { moviesById, refresh } = useMoviesById(ids);
   const [sortMode, setSortMode] = useState<SortMode>('date');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
 
   const data = useMemo(() => {
     const movies = ids.map((id) => moviesById[id]).filter((m): m is TmdbMovie => Boolean(m));
@@ -104,6 +115,10 @@ export default function LibraryStatusScreen() {
       )}
       {ids.length === 0 ? (
         <EmptyState title="Cette liste est vide" subtitle="Va découvrir des films pour la remplir." />
+      ) : data.length === 0 ? (
+        <View style={styles.skeletonList}>
+          {ids.slice(0, 5).map((id) => <MovieRowSkeleton key={id} />)}
+        </View>
       ) : (
         <Animated.FlatList
           data={data}
@@ -116,6 +131,15 @@ export default function LibraryStatusScreen() {
           maxToRenderPerBatch={6}
           windowSize={9}
           removeClippedSubviews
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.gold}
+              colors={[colors.gold]}
+              progressBackgroundColor={colors.bg2}
+            />
+          }
         />
       )}
     </SafeAreaView>
@@ -128,6 +152,7 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.serifBold, fontSize: 24, flex: 1 },
   count: { fontFamily: fonts.mono, color: colors.ink3, fontSize: 12 },
   list: { padding: spacing.md, paddingTop: 0, paddingBottom: SCROLL_BOTTOM_PAD },
+  skeletonList: { padding: spacing.md, paddingTop: 0, gap: spacing.s },
   separator: { height: spacing.s },
   sortRow: { gap: spacing.s, paddingHorizontal: spacing.md, paddingBottom: spacing.s },
   sortChip: {

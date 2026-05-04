@@ -15,7 +15,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { impactAsync, ImpactFeedbackStyle } from 'expo-haptics';
-import { Undo2 } from 'lucide-react-native';
+import { Undo2, RefreshCw } from 'lucide-react-native';
 import { useTmdbDiscover } from '@/hooks/useTmdbDiscover';
 import { useLibraryActions, useLibraryState } from '@/context/LibraryContext';
 import { MovieTicket } from '@/components/MovieTicket';
@@ -267,7 +267,17 @@ export default function DiscoverScreen() {
       <View style={styles.masthead}>
         <Text style={styles.mastheadSide} numberOfLines={1}>N° {String(TICKET_NUM_BASE + sessionCount).padStart(4, '0')}</Text>
         <Text style={styles.mastheadCenter}>Clap'</Text>
-        <Text style={[styles.mastheadSide, styles.mastheadRight]} numberOfLines={1}>{sessionCount} TICKETS</Text>
+        <Pressable
+          onPress={refill}
+          hitSlop={10}
+          style={styles.mastheadRightCell}
+          accessibilityRole="button"
+          accessibilityLabel="Recharger la bobine"
+          accessibilityHint="Charge un nouveau lot de films"
+        >
+          <Text style={[styles.mastheadSide, styles.mastheadRight]} numberOfLines={1}>{sessionCount} TICKETS</Text>
+          <RefreshCw size={12} color={colors.ink3} strokeWidth={1.8} />
+        </Pressable>
       </View>
 
       <View style={styles.stack}>
@@ -431,7 +441,8 @@ const styles = StyleSheet.create({
     height: MASTHEAD_H,
   },
   mastheadSide: { fontFamily: fonts.mono, fontSize: 10, color: colors.ink3, letterSpacing: 1, textTransform: 'uppercase', flex: 1 },
-  mastheadRight: { textAlign: 'right' },
+  mastheadRight: { textAlign: 'right', flex: 0 },
+  mastheadRightCell: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
   mastheadCenter: { fontFamily: fonts.serifItalic, fontSize: 22, color: colors.gold, textAlign: 'center', flex: 1 },
   stack: { flex: 1, overflow: 'hidden' },
   cardLayer: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },

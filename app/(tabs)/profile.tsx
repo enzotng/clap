@@ -19,6 +19,7 @@ import { useAdvancedStats } from '@/hooks/useAdvancedStats';
 import { GENRES } from '@/lib/genres';
 import { formatDateFr } from '@/lib/format';
 import { MoviePoster } from '@/components/MoviePoster';
+import { MoviePosterSkeleton } from '@/components/MoviePosterSkeleton';
 import { RatingStars } from '@/components/RatingStars';
 import {
   colors,
@@ -53,7 +54,7 @@ export default function ProfileScreen() {
     return ids;
   }, [topFavIds, lastSeenId]);
 
-  const movies = useMoviesById(moviesNeeded);
+  const { moviesById: movies } = useMoviesById(moviesNeeded);
   const lastSeenMovie = lastSeenId ? movies[lastSeenId] : undefined;
   const lastSeenAt = lastSeenId ? state.byId[lastSeenId]?.addedAt : undefined;
 
@@ -100,17 +101,25 @@ export default function ProfileScreen() {
             <View style={styles.favRow}>
               {topFavIds.map((id, i) => {
                 const movie = movies[id];
+                if (!movie) {
+                  return (
+                    <View key={id} style={styles.favItem}>
+                      <Text style={styles.favRank}>{i + 1}</Text>
+                      <MoviePosterSkeleton width={90} />
+                    </View>
+                  );
+                }
                 return (
                   <Pressable
                     key={id}
                     onPress={() => router.push({ pathname: '/movie/[id]', params: { id: String(id) } })}
                     style={styles.favItem}
                     accessibilityRole="button"
-                    accessibilityLabel={`Favori numéro ${i + 1} : ${movie?.title ?? 'film en chargement'}`}
+                    accessibilityLabel={`Favori numéro ${i + 1} : ${movie.title}`}
                   >
                     <Text style={styles.favRank}>{i + 1}</Text>
-                    <MoviePoster path={movie?.poster_path ?? null} size="w185" width={90} title={movie?.title ?? '...'} />
-                    <Text style={styles.favTitle} numberOfLines={2}>{movie?.title ?? '…'}</Text>
+                    <MoviePoster path={movie.poster_path} size="w185" width={90} title={movie.title} />
+                    <Text style={styles.favTitle} numberOfLines={2}>{movie.title}</Text>
                   </Pressable>
                 );
               })}

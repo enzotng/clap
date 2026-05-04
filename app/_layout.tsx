@@ -7,27 +7,28 @@ import { useFonts, Fraunces_400Regular, Fraunces_500Medium, Fraunces_600SemiBold
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import * as SplashScreen from 'expo-splash-screen';
-import { LibraryProvider, useLibraryState } from '@/context/LibraryContext';
+import { LibraryProvider, useLibraryHydrated, useUserPrefs } from '@/context/LibraryContext';
 import { ClapSplash } from '@/components/ClapSplash';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function HydrationGate({ children }: { children: ReactNode }) {
-  const { state } = useLibraryState();
+  const hydrated = useLibraryHydrated();
+  const prefs = useUserPrefs();
   const pathname = usePathname();
   const redirectedRef = useRef(false);
 
   useEffect(() => {
-    if (!state.hydrated) return;
-    if (state.prefs.onboarded) return;
+    if (!hydrated) return;
+    if (prefs.onboarded) return;
     if (pathname === '/onboarding') return;
     if (redirectedRef.current) return;
     redirectedRef.current = true;
     router.replace('/onboarding');
-  }, [state.hydrated, state.prefs.onboarded, pathname]);
+  }, [hydrated, prefs.onboarded, pathname]);
 
-  if (!state.hydrated) {
+  if (!hydrated) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={colors.gold} />
@@ -77,6 +78,7 @@ export default function RootLayout() {
                 animation: 'slide_from_bottom',
               }}
             />
+            <Stack.Screen name="person/[id]" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="+not-found" />
           </Stack>
         </HydrationGate>

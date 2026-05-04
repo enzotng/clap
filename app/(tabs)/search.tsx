@@ -4,11 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { Search as SearchIcon, X, SlidersHorizontal } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { useLibraryActions, useLibraryState } from '@/context/LibraryContext';
-import { useTmdbSearch } from '@/hooks/useTmdbSearch';
+import { useLibraryActions, useUserPrefs } from '@/context/LibraryContext';
+import { useTmdbSearchMulti } from '@/hooks/useTmdbSearchMulti';
 import { useTmdbPopular } from '@/hooks/useTmdbPopular';
+import { useTmdbPopularPeople } from '@/hooks/useTmdbPopularPeople';
 import { MovieRow } from '@/components/MovieRow';
 import { MoviePoster } from '@/components/MoviePoster';
+import { PersonRow } from '@/components/PersonRow';
+import { PersonCard } from '@/components/PersonCard';
+import { MovieRowSkeleton } from '@/components/MovieRowSkeleton';
+import { MoviePosterSkeleton } from '@/components/MoviePosterSkeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { GENRES } from '@/lib/genres';
 import {
@@ -19,7 +24,7 @@ import {
   TAB_BAR_HEIGHT,
   TAB_BAR_BOTTOM_INSET,
 } from '@/theme/tokens';
-import type { TmdbMovie, DiscoverSort } from '@/lib/tmdb';
+import type { TmdbMovie, TmdbMultiResult, DiscoverSort } from '@/lib/tmdb';
 
 const DECADES: { id: string; label: string; from: number; to: number }[] = [
   { id: '70s', label: '70s', from: 1970, to: 1979 },
@@ -44,7 +49,7 @@ const SORTS: { id: DiscoverSort; label: string }[] = [
 const SCROLL_BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_INSET + spacing.lg;
 
 export default function SearchScreen() {
-  const { state } = useLibraryState();
+  const prefs = useUserPrefs();
   const { setPrefs } = useLibraryActions();
   const [query, setQuery] = useState('');
   const [genreId, setGenreId] = useState<number | null>(null);
@@ -53,7 +58,7 @@ export default function SearchScreen() {
   const [sortBy, setSortBy] = useState<DiscoverSort>('popularity.desc');
   const [showFilters, setShowFilters] = useState(false);
 
-  const recentQueries = state.prefs.recentQueries;
+  const recentQueries = prefs.recentQueries;
 
   const onSubmitQuery = useCallback(() => {
     const q = query.trim();
@@ -79,8 +84,9 @@ export default function SearchScreen() {
     [genreId, decade, minRating, sortBy],
   );
 
-  const { results: searchResults, loading: searchLoading, error: searchError, loadMore, hasMore } = useTmdbSearch(query);
+  const { results: searchResults, loading: searchLoading, error: searchError, loadMore, hasMore } = useTmdbSearchMulti(query);
   const { results: discoverResults, loading: discoverLoading, error: discoverError } = useTmdbPopular(popularFilters);
+  const { results: popularPeople, loading: popularPeopleLoading, error: popularPeopleError } = useTmdbPopularPeople();
 
   const onChangeQuery = useCallback((q: string) => {
     setQuery(q);
@@ -93,46 +99,15 @@ export default function SearchScreen() {
     setSortBy('popularity.desc');
   }, []);
 
-  const renderResultItem = useCallback(({ item }: { item: TmdbMovie }) => <MovieRow movie={item} />, []);
-  const keyExtractor = useCallback((item: TmdbMovie) => String(item.id), []);
-
-  if (inSearchMode) {
-    return (
-      <SafeAreaView style={styles.root} edges={['top']}>
-        <SearchBar
-          value={query}
-          onChange={onChangeQuery}
-          onSubmit={onSubmitQuery}
-          hasFilters={false}
-          showFilters={false}
-          onToggleFilters={() => {}}
-        />
-        {searchError ? (
-          <EmptyState title="Service indisponible" subtitle="Réessaie dans un instant." />
-        ) : searchResults.length === 0 && !searchLoading ? (
-          <EmptyState title="Aucun résultat" subtitle={`Rien trouvé pour « ${trimmedQuery} »`} />
-        ) : (
-          <FlatList
-            data={searchResults}
-            keyExtractor={keyExtractor}
-            renderItem={renderResultItem}
-            ItemSeparatorComponent={Separator}
-            contentContainerStyle={styles.list}
-            onEndReached={loadMore}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={hasMore && searchLoading ? <ActivityIndicator color={colors.gold} style={styles.spinner} /> : null}
-            keyboardShouldPersistTaps="handled"
-            initialNumToRender={8}
-            maxToRenderPerBatch={6}
-            windowSize={9}
-            removeClippedSubviews
-          />
-        )}
-      </SafeAreaView>
-    );
-  }
-
-  const sectionTitle = buildSectionTitle({ genreId, decadeId, minRating, sortBy });
+  const renderMultiItem = useCallback(({ item }: { item: TmdbMultiResult }) => {
+    if (item.media_type === 'movie') return <MovieRow movie={item} />;
+    if (item.media_type === 'person') return <PersonRow person={item} />;
+    return null;
+  }, []);
+  const multiKeyExtractor = useCallback(
+    (item: TmdbMultiResult) => `${item.media_type}-${item.id}`,
+    [],
+  );
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -143,8 +118,9 @@ export default function SearchScreen() {
         hasFilters={hasFilters}
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters((v) => !v)}
+        showFiltersIcon={!inSearchMode}
       />
-      {recentQueries.length > 0 && (
+      {recentQueries.length > 0 && !inSearchMode && (
         <View style={styles.recentRow}>
           <Text style={styles.recentLabel}>Récentes</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentChips}>
@@ -177,29 +153,85 @@ export default function SearchScreen() {
         onReset={onResetFilters}
         hasFilters={hasFilters}
       />
-      <ScrollView contentContainerStyle={styles.idleScroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.resultHeader}>
-          <Text style={styles.sectionTitle}>{sectionTitle}</Text>
-          {hasFilters && (
-            <Pressable onPress={onResetFilters} hitSlop={8} accessibilityRole="button" accessibilityLabel="Réinitialiser les filtres">
-              <Text style={styles.resetLink}>Réinitialiser</Text>
-            </Pressable>
-          )}
-        </View>
-        {discoverError ? (
+      {inSearchMode ? (
+        searchError ? (
           <EmptyState title="Service indisponible" subtitle="Réessaie dans un instant." />
-        ) : discoverLoading ? (
-          <ActivityIndicator color={colors.gold} style={styles.spinner} />
-        ) : discoverResults.length === 0 ? (
-          <EmptyState title="Aucun film" subtitle="Essaie d'ajuster les filtres" />
-        ) : (
-          <View style={styles.posterGrid}>
-            {discoverResults.slice(0, 18).map((m) => (
-              <PosterCard key={m.id} movie={m} />
-            ))}
+        ) : searchResults.length === 0 && searchLoading ? (
+          <View style={styles.skeletonList}>
+            {SKELETON_ROWS.map((k) => <MovieRowSkeleton key={k} />)}
           </View>
-        )}
-      </ScrollView>
+        ) : searchResults.length === 0 ? (
+          <EmptyState title="Aucun résultat" subtitle={`Rien trouvé pour « ${trimmedQuery} »`} />
+        ) : (
+          <FlatList
+            data={searchResults}
+            keyExtractor={multiKeyExtractor}
+            renderItem={renderMultiItem}
+            ItemSeparatorComponent={Separator}
+            contentContainerStyle={styles.list}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={hasMore && searchLoading ? <ActivityIndicator color={colors.gold} style={styles.spinner} /> : null}
+            keyboardShouldPersistTaps="handled"
+            initialNumToRender={8}
+            maxToRenderPerBatch={6}
+            windowSize={9}
+            removeClippedSubviews
+          />
+        )
+      ) : (
+        <ScrollView contentContainerStyle={styles.idleScroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.resultHeader}>
+            <Text style={styles.sectionTitle}>{buildSectionTitle({ genreId, decadeId, minRating, sortBy })}</Text>
+            {hasFilters && (
+              <Pressable onPress={onResetFilters} hitSlop={8} accessibilityRole="button" accessibilityLabel="Réinitialiser les filtres">
+                <Text style={styles.resetLink}>Réinitialiser</Text>
+              </Pressable>
+            )}
+          </View>
+          {discoverError ? (
+            <EmptyState title="Service indisponible" subtitle="Réessaie dans un instant." />
+          ) : discoverLoading ? (
+            <View style={styles.posterGrid}>
+              {SKELETON_POSTERS.map((k) => <MoviePosterSkeleton key={k} width={POSTER_W} />)}
+            </View>
+          ) : discoverResults.length === 0 ? (
+            <EmptyState title="Aucun film" subtitle="Essaie d'ajuster les filtres" />
+          ) : (
+            <View style={styles.posterGrid}>
+              {discoverResults.slice(0, 18).map((m) => (
+                <PosterCard key={m.id} movie={m} />
+              ))}
+            </View>
+          )}
+
+          <View style={styles.peopleHeader}>
+            <Text style={styles.sectionTitle}>Acteurs populaires</Text>
+          </View>
+          {popularPeopleError ? (
+            <Text style={styles.peopleError}>Acteurs indisponibles pour le moment.</Text>
+          ) : popularPeopleLoading && popularPeople.length === 0 ? (
+            <View style={styles.peopleSkeletonRow}>
+              {SKELETON_PEOPLE.map((k) => (
+                <View key={k} style={styles.peopleSkeletonCard}>
+                  <View style={styles.peopleSkeletonAvatar} />
+                  <View style={styles.peopleSkeletonName} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.peopleRow}
+            >
+              {popularPeople.slice(0, 20).map((p) => (
+                <PersonCard key={p.id} person={p} />
+              ))}
+            </ScrollView>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -227,6 +259,7 @@ function SearchBar({
   hasFilters,
   showFilters,
   onToggleFilters,
+  showFiltersIcon,
 }: {
   value: string;
   onChange: (s: string) => void;
@@ -234,6 +267,7 @@ function SearchBar({
   hasFilters: boolean;
   showFilters: boolean;
   onToggleFilters: () => void;
+  showFiltersIcon: boolean;
 }) {
   return (
     <View style={styles.searchBox}>
@@ -242,13 +276,13 @@ function SearchBar({
         value={value}
         onChangeText={onChange}
         onSubmitEditing={onSubmit}
-        placeholder="Rechercher un film..."
+        placeholder="Film, acteur, réalisateur..."
         placeholderTextColor={colors.ink3}
         style={styles.input}
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
-        accessibilityLabel="Rechercher un film"
+        accessibilityLabel="Rechercher"
       />
       {value.length > 0 ? (
         <Pressable
@@ -260,7 +294,7 @@ function SearchBar({
         >
           <X size={18} color={colors.ink3} strokeWidth={1.8} />
         </Pressable>
-      ) : (
+      ) : showFiltersIcon ? (
         <Pressable
           onPress={onToggleFilters}
           hitSlop={12}
@@ -276,7 +310,7 @@ function SearchBar({
           />
           {hasFilters && !showFilters && <View style={styles.filterBadge} />}
         </Pressable>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -431,6 +465,9 @@ function Separator() {
 }
 
 const POSTER_W = 100;
+const SKELETON_ROWS = ['s1', 's2', 's3', 's4', 's5'];
+const SKELETON_POSTERS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
+const SKELETON_PEOPLE = ['k1', 'k2', 'k3', 'k4', 'k5', 'k6'];
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
@@ -463,6 +500,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
   },
   list: { paddingHorizontal: spacing.md, paddingTop: 0, paddingBottom: SCROLL_BOTTOM_PAD },
+  skeletonList: { paddingHorizontal: spacing.md, gap: spacing.s },
   separator: { height: spacing.s },
   spinner: { paddingVertical: spacing.lg },
   idleScroll: { paddingBottom: SCROLL_BOTTOM_PAD },
@@ -526,6 +564,13 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   recentChipText: { fontFamily: fonts.sansMed, color: colors.ink2, fontSize: 12 },
+  peopleHeader: { paddingHorizontal: spacing.md, marginTop: spacing.xl, marginBottom: spacing.s },
+  peopleRow: { gap: spacing.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.s },
+  peopleSkeletonRow: { flexDirection: 'row', gap: spacing.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.s },
+  peopleSkeletonCard: { width: 80, gap: 6, alignItems: 'center' },
+  peopleSkeletonAvatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.bg3 },
+  peopleSkeletonName: { width: 60, height: 11, borderRadius: 4, backgroundColor: colors.bg3 },
+  peopleError: { fontFamily: fonts.sans, color: colors.ink3, fontSize: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.s },
   sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,9,8,0.55)' },
   sheet: {
     position: 'absolute',

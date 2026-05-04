@@ -59,6 +59,34 @@ export type TmdbPerson = {
   };
 };
 
+export type TmdbPersonSearchResult = {
+  id: number;
+  name: string;
+  profile_path: string | null;
+  known_for_department: string;
+  popularity: number;
+  known_for: TmdbMovie[];
+};
+
+export type TmdbPersonSearchPage = {
+  page: number;
+  total_pages: number;
+  total_results: number;
+  results: TmdbPersonSearchResult[];
+};
+
+export type TmdbMultiMovie = TmdbMovie & { media_type: 'movie' };
+export type TmdbMultiPerson = TmdbPersonSearchResult & { media_type: 'person' };
+export type TmdbMultiTv = { media_type: 'tv'; id: number; name: string };
+export type TmdbMultiResult = TmdbMultiMovie | TmdbMultiPerson | TmdbMultiTv;
+
+export type TmdbMultiSearchPage = {
+  page: number;
+  total_pages: number;
+  total_results: number;
+  results: TmdbMultiResult[];
+};
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 200;
 const FETCH_TIMEOUT_MS = 12000;
@@ -78,6 +106,13 @@ function cacheSet(url: string, data: unknown) {
   if (cache.size > CACHE_MAX_ENTRIES) {
     const oldest = cache.keys().next().value;
     if (oldest !== undefined) cache.delete(oldest);
+  }
+}
+
+export function invalidateMovie(id: number): void {
+  const prefix = `${BASE}/movie/${id}?`;
+  for (const key of [...cache.keys()]) {
+    if (key.startsWith(prefix)) cache.delete(key);
   }
 }
 
@@ -179,6 +214,10 @@ export const tmdbApi = {
   },
   search: (query: string, page: number, signal?: AbortSignal) =>
     tmdb<TmdbSearchPage>('/search/movie', { query, page, include_adult: 'false' }, signal),
+  searchMulti: (query: string, page: number, signal?: AbortSignal) =>
+    tmdb<TmdbMultiSearchPage>('/search/multi', { query, page, include_adult: 'false' }, signal),
+  popularPerson: (page: number, signal?: AbortSignal) =>
+    tmdb<TmdbPersonSearchPage>('/person/popular', { page }, signal),
   movie: (id: number, signal?: AbortSignal) =>
     tmdb<TmdbMovieDetail>(`/movie/${safeId(id)}`, { append_to_response: 'credits,similar' }, signal),
   person: (id: number, signal?: AbortSignal) =>
